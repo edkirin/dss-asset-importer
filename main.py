@@ -36,7 +36,7 @@ def process_example_1():
             aggregate_errors=True,
         )
 
-        result = csv_loader.read_to_models()
+        result = csv_loader.read_rows()
         rows = cast(List[Example1Row], result.rows)
         if result.has_errors():
             for error in result.errors:
@@ -58,7 +58,7 @@ def process_example_2():
             has_header=True,
         )
 
-        result = csv_loader.read_to_models()
+        result = csv_loader.read_rows()
         rows = cast(List[Example2Row], result.rows)
         for row in rows:
             print(row)
