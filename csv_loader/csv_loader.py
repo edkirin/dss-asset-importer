@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List, Optional, Type, Union
+from typing import Any, Iterable, List, Optional, Tuple, Type, Union
 
 from pydantic import BaseModel, validator
 from pydantic.fields import ModelField
@@ -6,19 +6,20 @@ from pydantic.typing import get_args, get_origin
 
 
 class CSVRow(BaseModel):
-    """
-    Represents a model base for a single CSV row and implements special handling for string values.
+    """Represents a model base for a single CSV row and implements special handling for string values.
     If given field value is empty, but annotated type is not string, it will be converted to None.
     This is useful for basic types (int, float), to be converted to None if value is not provided.
     It's assumed those fields are annotated as Optional, otherwise pydantic will raise expected
     validation error.
-    If given field type is optional string and provided value is empty, Config.empty_optional_str_to_none
-    will force it to None.
+    See Config inner class for more options.
     """
 
     class Config:
-        anystr_strip_whitespace = True
-        empty_optional_str_to_none = True
+        anystr_strip_whitespace: bool = True
+        """Standard pydantic config flag, set default to True."""
+        empty_optional_str_fields_to_none: Tuple = ("__all__",)
+        """List of optional string fields which will be converted to None, if empty.
+        Default magic value is "__all__" to convert all fields."""
 
     @validator("*", pre=True)
     def prepare_str_value(cls, value: Any, field: ModelField) -> Optional[Any]:
@@ -31,12 +32,15 @@ class CSVRow(BaseModel):
         # no special handling for non-empty strings
         if len(value) > 0:
             return value
-        # empty value and field type is not string? return None
+        # empty value and annotated field type is not string? return None
         if field.type_ is not str:
             return None
-        # if string field is optional with 0 length, set it to None
+        # if string field is annotated as optional with 0 length, set it to None
         if (
-            cls.Config.empty_optional_str_to_none
+            (
+                "__all__" in cls.Config.empty_optional_str_fields_to_none
+                or field.name in cls.Config.empty_optional_str_fields_to_none
+            )
             and get_origin(field.annotation) is Union
             and get_args(field.annotation)[1] is type(None)
         ):
