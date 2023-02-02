@@ -1,5 +1,5 @@
 import csv
-from typing import Optional
+from typing import List, Optional, cast
 
 from csv_loader import CSVLoader, CSVRow
 
@@ -33,11 +33,17 @@ def process_example_1():
             reader=reader,
             output_model_cls=Example1Row,
             has_header=True,
+            aggregate_errors=True,
         )
 
-        models = csv_loader.read_to_models()
-        for model in models:
-            print(model)
+        result = csv_loader.read_to_models()
+        rows = cast(List[Example1Row], result.rows)
+        if result.has_errors():
+            for error in result.errors:
+                print(error)
+        else:
+            for row in rows:
+                print(row.index, row.organization_id)
 
 
 def process_example_2():
@@ -52,9 +58,10 @@ def process_example_2():
             has_header=True,
         )
 
-        models = csv_loader.read_to_models()
-        for model in models:
-            print(model)
+        result = csv_loader.read_to_models()
+        rows = cast(List[Example2Row], result.rows)
+        for row in rows:
+            print(row)
 
 
 def test_optionals():
@@ -70,7 +77,7 @@ def test_optionals():
 
 def main():
     process_example_1()
-    process_example_2()
+    # process_example_2()
     # test_optionals()
 
 

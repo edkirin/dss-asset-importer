@@ -1,8 +1,19 @@
 from typing import Any, Iterable, List, Optional, Tuple, Type, Union
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, ValidationError, validator
 from pydantic.fields import ModelField
 from pydantic.typing import get_args, get_origin
+
+CSVReaderType = Iterable[List[str]]
+
+
+class CSVValidationError(Exception):
+    def __init__(self, line_number: int, original_error: ValidationError):
+        self.line_number = line_number
+        self.original_error = original_error
+
+    def __str__(self):
+        return f"Line {self.line_number}: {self.original_error}"
 
 
 class CSVRow(BaseModel):
@@ -48,28 +59,57 @@ class CSVRow(BaseModel):
         return value
 
 
+class CSVLoaderResult:
+    rows: List[BaseModel]
+    errors: List[Exception]
+
+    def __init__(self) -> None:
+        self.rows = []
+        self.errors = []
+
+    def has_errors(self) -> bool:
+        return len(self.errors) > 0
+
+
 class CSVLoader:
     def __init__(
         self,
-        reader: Iterable[List[str]],
+        reader: CSVReaderType,
         output_model_cls: Type[BaseModel],
         has_header: Optional[bool] = True,
+        aggregate_errors: Optional[bool] = False,
     ):
         self.reader = reader
-        self.has_header = has_header
         self.output_model_cls = output_model_cls
+        self.has_header = has_header
+        self.aggregate_errors = aggregate_errors
 
-    def read_to_models(self) -> List[BaseModel]:
-        row_models: List[BaseModel] = []
+    def read_to_models(self) -> CSVLoaderResult:
+        result = CSVLoaderResult()
 
         field_names = self.output_model_cls.__fields__.keys()
 
-        for index, row in enumerate(self.reader):
-            if self.has_header and index == 0:
+        for line_number, row in enumerate(self.reader):
+            if self.has_header and line_number == 0:
                 continue
 
+            # create dict containing field_name: value
             kwargs = dict(zip(field_names, row))
-            model = self.output_model_cls(**kwargs)
-            row_models.append(model)
 
-        return row_models
+            row_model = None
+            try:
+                row_model = self.output_model_cls(**kwargs)
+            except ValidationError as ex:
+                error = CSVValidationError(
+                    line_number=line_number,
+                    original_error=ex,
+                )
+                if self.aggregate_errors:
+                    result.errors.append(error)
+                else:
+                    raise error
+
+            if row_model is not None:
+                result.rows.append(row_model)
+
+        return result
