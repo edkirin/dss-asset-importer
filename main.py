@@ -1,5 +1,5 @@
 import csv
-from typing import Optional
+from typing import Optional, Union
 from csv_loader import CSVLoader, CSVRow
 
 
@@ -19,6 +19,8 @@ class Example1Row(CSVRow):
 class Example2Row(CSVRow):
     index: int
     organization_id: Optional[str]
+    random_letters: str
+    # random_letters: Optional[str]
 
 
 def process_example_1():
@@ -55,9 +57,21 @@ def process_example_2():
             print(model)
 
 
+def test_optionals():
+    class TestOptionals(CSVRow):
+        just_str: str
+        opt_str: Optional[str]
+
+    obj = TestOptionals(
+        just_str="abc",
+        opt_str="",
+    )
+
+
 def main():
     # process_example_1()
     process_example_2()
+    # test_optionals()
 
 
 if __name__ == "__main__":
