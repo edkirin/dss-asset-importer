@@ -20,13 +20,12 @@ class Example2Row(CSVRow):
     index: int
     organization_id: Optional[str]
     random_letters: str
-    # random_letters: Optional[str]
 
 
 def process_example_1():
     print("Processing Example 1")
 
-    with open("example-1.csv") as csv_file:
+    with open("csv_examples/example-1.csv") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
 
         csv_loader = CSVLoader(
@@ -43,7 +42,7 @@ def process_example_1():
 def process_example_2():
     print("Processing Example 2")
 
-    with open("example-2.csv") as csv_file:
+    with open("csv_examples/example-2.csv") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
 
         csv_loader = CSVLoader(
@@ -69,7 +68,7 @@ def test_optionals():
 
 
 def main():
-    # process_example_1()
+    process_example_1()
     process_example_2()
     # test_optionals()
 

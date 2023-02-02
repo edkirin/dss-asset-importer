@@ -1,13 +1,7 @@
-from ctypes import Union
-from typing import Dict, Iterable, List, Any, Optional, Type
-from pydantic import BaseModel
+from typing import Iterable, List, Any, Optional, Type, Union
 from pydantic import BaseModel, validator
 from pydantic.fields import ModelField
-from pydantic.typing import get_origin, get_args, is_union
-
-
-# def is_optional_annotation(class_attr: Dict[str, Type]) -> bool:
-#     return get_origin(class_attr) is Union and get_args(class_attr)[1] is type(None)
+from pydantic.typing import get_origin, get_args
 
 
 class CSVRow(BaseModel):
@@ -16,24 +10,26 @@ class CSVRow(BaseModel):
         empty_optional_str_to_none = True
 
     @validator("*", pre=True)
-    def prepare_value(cls, value: Any, field: ModelField) -> Optional[Any]:
-        # special handling for strings
-        if isinstance(value, str):
-            # strip whitespace if provided value is string
-            if cls.Config.anystr_strip_whitespace:
-                value = value.strip()
-            # if string field is optional with 0 length, set it to None
-            if len(value) == 0 and cls.Config.empty_optional_str_to_none:
-                origin = get_origin(field.annotation)
-                args = get_args(field.annotation)
-                if is_union(origin) and args[1] is type(None):
-                    return None
-
+    def prepare_str_value(cls, value: Any, field: ModelField) -> Optional[Any]:
+        # not a string? just return value, pydantic validator will do the rest
+        if not isinstance(value, str):
+            return value
+        # strip whitespace if config say so
+        if cls.Config.anystr_strip_whitespace:
+            value = value.strip()
+        # no special handling for non-empty strings
+        if len(value) > 0:
+            return value
         # empty value and field type is not string? return None
-        if value == "" and field.type_ is not str:
+        if field.type_ is not str:
             return None
-
-        # all good
+        # if string field is optional with 0 length, set it to None
+        if (
+            cls.Config.empty_optional_str_to_none
+            and get_origin(field.annotation) is Union
+            and get_args(field.annotation)[1] is type(None)
+        ):
+            return None
         return value
 
 
