@@ -1,5 +1,6 @@
 import csv
-from typing import Optional, Union
+from typing import Optional
+
 from csv_loader import CSVLoader, CSVRow
 
 

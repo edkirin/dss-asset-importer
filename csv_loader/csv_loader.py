@@ -1,10 +1,21 @@
-from typing import Iterable, List, Any, Optional, Type, Union
+from typing import Any, Iterable, List, Optional, Type, Union
+
 from pydantic import BaseModel, validator
 from pydantic.fields import ModelField
-from pydantic.typing import get_origin, get_args
+from pydantic.typing import get_args, get_origin
 
 
 class CSVRow(BaseModel):
+    """
+    Represents a model base for a single CSV row and implements special handling for string values.
+    If given field value is empty, but annotated type is not string, it will be converted to None.
+    This is useful for basic types (int, float), to be converted to None if value is not provided.
+    It's assumed those fields are annotated as Optional, otherwise pydantic will raise expected
+    validation error.
+    If given field type is optional string and provided value is empty, Config.empty_optional_str_to_none
+    will force it to None.
+    """
+
     class Config:
         anystr_strip_whitespace = True
         empty_optional_str_to_none = True
