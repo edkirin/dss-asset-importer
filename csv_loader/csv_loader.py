@@ -10,11 +10,11 @@ CSVReaderType = Iterable[List[str]]
 class CSVValidationError(Exception):
     """Extended validation exception class containing additional attributes."""
 
-    def __init__(self, line_number: int, original_error: ValidationError):
+    def __init__(self, line_number: int, original_error: ValidationError) -> None:
         self.line_number = line_number
         self.original_error = original_error
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Error at line {self.line_number}: {self.original_error}"
 
 
@@ -80,7 +80,7 @@ class CSVLoader:
         output_model_cls: Type[BaseModel],
         has_header: Optional[bool] = True,
         aggregate_errors: Optional[bool] = False,
-    ):
+    ) -> None:
         self.reader = reader
         self.output_model_cls = output_model_cls
         self.has_header = has_header
@@ -92,6 +92,7 @@ class CSVLoader:
         field_names = self.output_model_cls.__fields__.keys()
 
         for line_number, row in enumerate(self.reader):
+            # skip header, if configured
             if self.has_header and line_number == 0:
                 continue
 

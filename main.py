@@ -23,7 +23,7 @@ class Example2Row(CSVRow):
     random_letters: str
 
 
-def process_example_1():
+def process_example_1() -> None:
     print("Processing Example 1")
 
     with open("csv_examples/example-1.csv") as csv_file:
@@ -46,7 +46,7 @@ def process_example_1():
                 print(row.index, row.organization_id)
 
 
-def process_example_2():
+def process_example_2() -> None:
     print("Processing Example 2")
 
     with open("csv_examples/example-2.csv") as csv_file:
@@ -64,7 +64,7 @@ def process_example_2():
             print(row)
 
 
-def test_optionals():
+def test_optionals() -> None:
     class TestOptionals(CSVRow):
         just_str: str
         opt_str: Optional[str]
@@ -75,7 +75,7 @@ def test_optionals():
     )
 
 
-def main():
+def main() -> None:
     process_example_1()
     # process_example_2()
     # test_optionals()
