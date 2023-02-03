@@ -1,6 +1,8 @@
+import csv
 from typing import Optional
 from unittest import TestCase
-from csv_loader import CSVRow
+
+from csv_loader import CSVRow, CSVRows, CSVLoaderResult, CSVValidationError, CSVLoader
 
 
 class DefaultCSVRow(CSVRow):
@@ -16,7 +18,7 @@ class DefaultCSVRow(CSVRow):
         empty_optional_str_fields_to_none = ("__all__",)
 
 
-class TestCSVRow(TestCase):
+class TestCSVRowValidation(TestCase):
     def test_happy_case(self):
         row = DefaultCSVRow(
             **{
@@ -125,3 +127,112 @@ class TestCSVRow(TestCase):
         assert row.field_str_dont_touch_6 == ""
         assert row.field_str_dont_touch_7 == ""
         assert row.field_str_dont_touch_8 == ""
+
+
+class TestCSVRows(TestCase):
+    class Model(CSVRow):
+        id: int
+        value: str
+
+    def setup_method(self, method):
+        self.model_list = CSVRows[TestCSVRows.Model](
+            [
+                TestCSVRows.Model(id=1, value="abc"),
+                TestCSVRows.Model(id=2, value="def"),
+                TestCSVRows.Model(id=3, value="ghi"),
+                TestCSVRows.Model(id=4, value="jkl"),
+                TestCSVRows.Model(id=5, value="mno"),
+                TestCSVRows.Model(id=6, value="mno"),
+                TestCSVRows.Model(id=7, value="mno"),
+                TestCSVRows.Model(id=8, value="mno"),
+                TestCSVRows.Model(id=9, value="xyz"),
+            ]
+        )
+
+    def test_get_field_values(self):
+        assert self.model_list.get_field_values("id") == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        assert set(self.model_list.get_field_values("value")) == set(
+            [
+                "abc",
+                "def",
+                "ghi",
+                "jkl",
+                "mno",
+                "mno",
+                "mno",
+                "mno",
+                "xyz",
+            ]
+        )
+
+    def test_get_field_values_unique(self):
+        assert self.model_list.get_field_values_unique("id") == [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+        ]
+        assert set(self.model_list.get_field_values_unique("value")) == set(
+            [
+                "abc",
+                "def",
+                "ghi",
+                "jkl",
+                "mno",
+                "xyz",
+            ]
+        )
+
+
+class TestCSVLoaderResult(TestCase):
+    def test_initial_values(self):
+        result = CSVLoaderResult[DefaultCSVRow]()
+        assert len(result.rows) == 0
+        assert len(result.errors) == 0
+        assert len(result.header) == 0
+        assert result.has_errors() is False
+
+
+CSV_FILE_1_CONTENT = """Index,  Organization Id ,Random letters
+1,"FAB0d41d5b5d22c","  AAA "
+2,,"BBB"
+3,"0bFED1ADAE4bcC1","CCC"
+4,"2bFC1Be8a4ce42f",""
+"""
+
+
+class CSVFile1Row(CSVRow):
+    index: int
+    organization_id: Optional[str]
+    random_letters: str
+
+
+class TestCSVLoader(TestCase):
+    def test_read_csv_file_1(self):
+        reader = csv.reader(CSV_FILE_1_CONTENT.splitlines(), delimiter=",")
+
+        csv_loader = CSVLoader[CSVFile1Row](
+            reader=reader,
+            output_model_cls=CSVFile1Row,
+            has_header=True,
+            aggregate_errors=True,
+        )
+        result = csv_loader.read_rows()
+
+        assert result.rows == [
+            CSVFile1Row(
+                index=1, organization_id="FAB0d41d5b5d22c", random_letters="AAA"
+            ),
+            CSVFile1Row(index=2, organization_id=None, random_letters="BBB"),
+            CSVFile1Row(
+                index=3, organization_id="0bFED1ADAE4bcC1", random_letters="CCC"
+            ),
+            CSVFile1Row(index=4, organization_id="2bFC1Be8a4ce42f", random_letters=""),
+        ]
+        assert result.has_errors() is False
+        assert result.header == ["Index", "Organization Id", "Random letters"]
