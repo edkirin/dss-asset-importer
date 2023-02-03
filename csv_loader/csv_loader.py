@@ -64,16 +64,33 @@ class CSVRow(BaseModel):
 CSVLoaderModelType = TypeVar("CSVLoaderModelType", bound=BaseModel)
 
 
+class CSVRows(List[CSVLoaderModelType]):
+    """Generic parsed CSV rows containing pydantic models."""
+
+    def get_field_values(self, field_name: str) -> List[Any]:
+        """Get list of all values from models for named field."""
+        return [getattr(row, field_name) for row in self]
+
+    def get_field_values_unique(self, field_name: str) -> List[Any]:
+        """Get list of all unique values from models for named field, without duplicates."""
+        return list(set(self.get_field_values(field_name)))
+
+
 class CSVLoaderResult(Generic[CSVLoaderModelType]):
+    """Generic CSVLoader result. Contains parsed pydantic models, aggregated errors and header content."""
+
     def __init__(self) -> None:
-        self.rows: List[CSVLoaderModelType] = []
+        self.rows: CSVRows[CSVLoaderModelType] = CSVRows()
         self.errors: List[CSVValidationError] = []
+        self.header: List[str] = []
 
     def has_errors(self) -> bool:
         return len(self.errors) > 0
 
 
 class CSVLoader(Generic[CSVLoaderModelType]):
+    """Generic CSV file parser."""
+
     def __init__(
         self,
         reader: CSVReaderType,
@@ -92,8 +109,13 @@ class CSVLoader(Generic[CSVLoaderModelType]):
         field_names = self.output_model_cls.__fields__.keys()
 
         for line_number, row in enumerate(self.reader):
+            # skip empty lines
+            if not row:
+                continue
+
             # skip header, if configured
             if self.has_header and line_number == 0:
+                result.header = [field.strip() for field in row]
                 continue
 
             # create dict containing field_name: value
@@ -101,15 +123,19 @@ class CSVLoader(Generic[CSVLoaderModelType]):
 
             row_model = None
             try:
+                # create output model from row data
                 row_model = self.output_model_cls(**kwargs)
             except ValidationError as ex:
+                # create extended error object
                 error = CSVValidationError(
                     line_number=line_number,
                     original_error=ex,
                 )
                 if self.aggregate_errors:
+                    # if we're aggregating errors, just add exception to the list
                     result.errors.append(error)
                 else:
+                    # else just raise error and stop reading rows
                     raise error
 
             if row_model is not None:

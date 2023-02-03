@@ -43,6 +43,7 @@ def process_example_1() -> None:
         else:
             for row in result.rows:
                 print(row.index, row.organization_id)
+            print(result.header)
 
 
 def process_example_2() -> None:
