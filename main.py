@@ -1,5 +1,5 @@
 import csv
-from typing import List, Optional, cast
+from typing import Optional
 
 from csv_loader import CSVLoader, CSVRow
 
@@ -29,7 +29,7 @@ def process_example_1() -> None:
     with open("csv_examples/example-1.csv") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
 
-        csv_loader = CSVLoader(
+        csv_loader = CSVLoader[Example1Row](
             reader=reader,
             output_model_cls=Example1Row,
             has_header=True,
@@ -37,12 +37,11 @@ def process_example_1() -> None:
         )
 
         result = csv_loader.read_rows()
-        rows = cast(List[Example1Row], result.rows)
         if result.has_errors():
             for error in result.errors:
                 print(error)
         else:
-            for row in rows:
+            for row in result.rows:
                 print(row.index, row.organization_id)
 
 
@@ -52,33 +51,20 @@ def process_example_2() -> None:
     with open("csv_examples/example-2.csv") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
 
-        csv_loader = CSVLoader(
+        csv_loader = CSVLoader[Example2Row](
             reader=reader,
             output_model_cls=Example2Row,
             has_header=True,
         )
 
         result = csv_loader.read_rows()
-        rows = cast(List[Example2Row], result.rows)
-        for row in rows:
+        for row in result.rows:
             print(row)
-
-
-def test_optionals() -> None:
-    class TestOptionals(CSVRow):
-        just_str: str
-        opt_str: Optional[str]
-
-    obj = TestOptionals(
-        just_str="abc",
-        opt_str="",
-    )
 
 
 def main() -> None:
     process_example_1()
-    # process_example_2()
-    # test_optionals()
+    process_example_2()
 
 
 if __name__ == "__main__":

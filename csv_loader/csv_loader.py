@@ -1,4 +1,4 @@
-from typing import Any, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
 from pydantic import BaseModel, ValidationError, validator
 from pydantic.fields import ModelField
@@ -61,23 +61,23 @@ class CSVRow(BaseModel):
         return value
 
 
-class CSVLoaderResult:
-    rows: List[BaseModel]
-    errors: List[Exception]
+CSVLoaderModelType = TypeVar("CSVLoaderModelType", bound=BaseModel)
 
+
+class CSVLoaderResult(Generic[CSVLoaderModelType]):
     def __init__(self) -> None:
-        self.rows = []
-        self.errors = []
+        self.rows: List[CSVLoaderModelType] = []
+        self.errors: List[CSVValidationError] = []
 
     def has_errors(self) -> bool:
         return len(self.errors) > 0
 
 
-class CSVLoader:
+class CSVLoader(Generic[CSVLoaderModelType]):
     def __init__(
         self,
         reader: CSVReaderType,
-        output_model_cls: Type[BaseModel],
+        output_model_cls: Type[CSVLoaderModelType],
         has_header: Optional[bool] = True,
         aggregate_errors: Optional[bool] = False,
     ) -> None:
@@ -86,8 +86,8 @@ class CSVLoader:
         self.has_header = has_header
         self.aggregate_errors = aggregate_errors
 
-    def read_rows(self) -> CSVLoaderResult:
-        result = CSVLoaderResult()
+    def read_rows(self) -> CSVLoaderResult[CSVLoaderModelType]:
+        result = CSVLoaderResult[CSVLoaderModelType]()
 
         field_names = self.output_model_cls.__fields__.keys()
 
