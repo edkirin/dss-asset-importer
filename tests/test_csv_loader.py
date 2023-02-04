@@ -2,7 +2,9 @@ import csv
 from typing import Optional
 from unittest import TestCase
 
-from csv_loader import CSVRow, CSVRows, CSVLoaderResult, CSVValidationError, CSVLoader
+import pytest
+
+from csv_loader import CSVLoader, CSVLoaderResult, CSVRow, CSVRows, CSVValidationError
 
 
 class DefaultCSVRow(CSVRow):
@@ -151,19 +153,17 @@ class TestCSVRows(TestCase):
 
     def test_get_field_values(self):
         assert self.model_list.get_field_values("id") == [1, 2, 3, 4, 5, 6, 7, 8, 9]
-        assert set(self.model_list.get_field_values("value")) == set(
-            [
-                "abc",
-                "def",
-                "ghi",
-                "jkl",
-                "mno",
-                "mno",
-                "mno",
-                "mno",
-                "xyz",
-            ]
-        )
+        assert set(self.model_list.get_field_values("value")) == {
+            "abc",
+            "def",
+            "ghi",
+            "jkl",
+            "mno",
+            "mno",
+            "mno",
+            "mno",
+            "xyz",
+        }
 
     def test_get_field_values_unique(self):
         assert self.model_list.get_field_values_unique("id") == [
@@ -177,16 +177,14 @@ class TestCSVRows(TestCase):
             8,
             9,
         ]
-        assert set(self.model_list.get_field_values_unique("value")) == set(
-            [
-                "abc",
-                "def",
-                "ghi",
-                "jkl",
-                "mno",
-                "xyz",
-            ]
-        )
+        assert set(self.model_list.get_field_values_unique("value")) == {
+            "abc",
+            "def",
+            "ghi",
+            "jkl",
+            "mno",
+            "xyz",
+        }
 
 
 class TestCSVLoaderResult(TestCase):
@@ -198,41 +196,327 @@ class TestCSVLoaderResult(TestCase):
         assert result.has_errors() is False
 
 
-CSV_FILE_1_CONTENT = """Index,  Organization Id ,Random letters
-1,"FAB0d41d5b5d22c","  AAA "
-2,,"BBB"
-3,"0bFED1ADAE4bcC1","CCC"
-4,"2bFC1Be8a4ce42f",""
-"""
-
-
-class CSVFile1Row(CSVRow):
+class SimpleFixtureFileRow(CSVRow):
     index: int
     organization_id: Optional[str]
     random_letters: str
 
 
+class RandomPersonsFixtureFileRow(CSVRow):
+    index: int
+    mandatory_str: str
+    optional_str: Optional[str]
+    mandatory_int: int
+    optional_int: Optional[int]
+    mandatory_float: float
+    optional_float: Optional[float]
+
+
+class RandomPersonsFixtureFileEmptyStrRow(RandomPersonsFixtureFileRow):
+    class Config:
+        anystr_strip_whitespace = True
+        empty_optional_str_fields_to_none = ("",)
+
+
+class ErrorFixtureFileRow(CSVRow):
+    a: int
+    b: int
+    c: int
+    d: int
+
+
 class TestCSVLoader(TestCase):
     def test_read_csv_file_1(self):
-        reader = csv.reader(CSV_FILE_1_CONTENT.splitlines(), delimiter=",")
+        with open("fixtures/simple.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
 
-        csv_loader = CSVLoader[CSVFile1Row](
-            reader=reader,
-            output_model_cls=CSVFile1Row,
-            has_header=True,
-            aggregate_errors=True,
-        )
-        result = csv_loader.read_rows()
+            csv_loader = CSVLoader[SimpleFixtureFileRow](
+                reader=reader,
+                output_model_cls=SimpleFixtureFileRow,
+                has_header=True,
+                aggregate_errors=True,
+            )
+            result = csv_loader.read_rows()
 
         assert result.rows == [
-            CSVFile1Row(
+            SimpleFixtureFileRow(
                 index=1, organization_id="FAB0d41d5b5d22c", random_letters="AAA"
             ),
-            CSVFile1Row(index=2, organization_id=None, random_letters="BBB"),
-            CSVFile1Row(
+            SimpleFixtureFileRow(index=2, organization_id=None, random_letters="BBB"),
+            SimpleFixtureFileRow(
                 index=3, organization_id="0bFED1ADAE4bcC1", random_letters="CCC"
             ),
-            CSVFile1Row(index=4, organization_id="2bFC1Be8a4ce42f", random_letters=""),
+            SimpleFixtureFileRow(
+                index=4, organization_id="2bFC1Be8a4ce42f", random_letters=""
+            ),
         ]
         assert result.has_errors() is False
         assert result.header == ["Index", "Organization Id", "Random letters"]
+
+    def test_read_csv_random_persons__with_optional_none_strings(self):
+        with open("fixtures/random-person.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[RandomPersonsFixtureFileRow](
+                reader=reader,
+                output_model_cls=RandomPersonsFixtureFileRow,
+                has_header=True,
+                aggregate_errors=True,
+            )
+            result = csv_loader.read_rows()
+
+        expected = [
+            RandomPersonsFixtureFileRow(
+                index=1,
+                mandatory_str="Tyler",
+                optional_str="Martin",
+                mandatory_int=0,
+                optional_int=0,
+                mandatory_float=-2509.91694,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=2,
+                mandatory_str="Hunter",
+                optional_str=None,
+                mandatory_int=20,
+                optional_int=1,
+                mandatory_float=-15221.35845,
+                optional_float=-95947.2111,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=3,
+                mandatory_str="Kevin",
+                optional_str="Sanchez",
+                mandatory_int=8,
+                optional_int=None,
+                mandatory_float=40050.61689,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=4,
+                mandatory_str="Christopher",
+                optional_str="Freeman",
+                mandatory_int=9,
+                optional_int=7,
+                mandatory_float=74859.09668,
+                optional_float=-46270.42507,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=5,
+                mandatory_str="Bryan",
+                optional_str="Hall",
+                mandatory_int=5,
+                optional_int=None,
+                mandatory_float=-17964.3768,
+                optional_float=-67664.05305,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=6,
+                mandatory_str="Ricky",
+                optional_str=None,
+                mandatory_int=81,
+                optional_int=7,
+                mandatory_float=59494.01444,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=7,
+                mandatory_str="Anna",
+                optional_str=None,
+                mandatory_int=7,
+                optional_int=6,
+                mandatory_float=98680.42175,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=8,
+                mandatory_str="Angelica",
+                optional_str="Evans",
+                mandatory_int=27,
+                optional_int=None,
+                mandatory_float=58478.98207,
+                optional_float=58604.80922,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=9,
+                mandatory_str="Patricia",
+                optional_str="Brewer",
+                mandatory_int=2,
+                optional_int=None,
+                mandatory_float=-8726.879,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRow(
+                index=10,
+                mandatory_str="John",
+                optional_str="Mitchell",
+                mandatory_int=60,
+                optional_int=None,
+                mandatory_float=93534.83911,
+                optional_float=None,
+            ),
+        ]
+        assert result.rows == expected
+        assert result.has_errors() is False
+        assert result.header == [
+            "index",
+            "mandatory str",
+            "optional str",
+            "mandatory int",
+            "optional int",
+            "mandatory float",
+            "optional float",
+        ]
+
+    def test_read_csv_random_persons__with_optional_empty_strings(self):
+        with open("fixtures/random-person.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[RandomPersonsFixtureFileEmptyStrRow](
+                reader=reader,
+                output_model_cls=RandomPersonsFixtureFileEmptyStrRow,
+                has_header=True,
+                aggregate_errors=True,
+            )
+            result = csv_loader.read_rows()
+
+        expected = [
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=1,
+                mandatory_str="Tyler",
+                optional_str="Martin",
+                mandatory_int=0,
+                optional_int=0,
+                mandatory_float=-2509.91694,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=2,
+                mandatory_str="Hunter",
+                optional_str="",
+                mandatory_int=20,
+                optional_int=1,
+                mandatory_float=-15221.35845,
+                optional_float=-95947.2111,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=3,
+                mandatory_str="Kevin",
+                optional_str="Sanchez",
+                mandatory_int=8,
+                optional_int=None,
+                mandatory_float=40050.61689,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=4,
+                mandatory_str="Christopher",
+                optional_str="Freeman",
+                mandatory_int=9,
+                optional_int=7,
+                mandatory_float=74859.09668,
+                optional_float=-46270.42507,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=5,
+                mandatory_str="Bryan",
+                optional_str="Hall",
+                mandatory_int=5,
+                optional_int=None,
+                mandatory_float=-17964.3768,
+                optional_float=-67664.05305,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=6,
+                mandatory_str="Ricky",
+                optional_str="",
+                mandatory_int=81,
+                optional_int=7,
+                mandatory_float=59494.01444,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=7,
+                mandatory_str="Anna",
+                optional_str="",
+                mandatory_int=7,
+                optional_int=6,
+                mandatory_float=98680.42175,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=8,
+                mandatory_str="Angelica",
+                optional_str="Evans",
+                mandatory_int=27,
+                optional_int=None,
+                mandatory_float=58478.98207,
+                optional_float=58604.80922,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=9,
+                mandatory_str="Patricia",
+                optional_str="Brewer",
+                mandatory_int=2,
+                optional_int=None,
+                mandatory_float=-8726.879,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileEmptyStrRow(
+                index=10,
+                mandatory_str="John",
+                optional_str="Mitchell",
+                mandatory_int=60,
+                optional_int=None,
+                mandatory_float=93534.83911,
+                optional_float=None,
+            ),
+        ]
+        assert result.rows == expected
+        assert result.has_errors() is False
+        assert result.header == [
+            "index",
+            "mandatory str",
+            "optional str",
+            "mandatory int",
+            "optional int",
+            "mandatory float",
+            "optional float",
+        ]
+
+    def test_stop_on_first_error(self):
+        with open("fixtures/errors.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[ErrorFixtureFileRow](
+                reader=reader,
+                output_model_cls=ErrorFixtureFileRow,
+                has_header=False,
+                aggregate_errors=False,
+            )
+            with pytest.raises(CSVValidationError) as ex:
+                csv_loader.read_rows()
+
+            assert isinstance(ex.value, CSVValidationError)
+            assert ex.value.line_number == 0
+            assert len(ex.value.original_error.raw_errors) == 4
+
+    def test_aggregate_errors(self):
+        with open("fixtures/errors.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[ErrorFixtureFileRow](
+                reader=reader,
+                output_model_cls=ErrorFixtureFileRow,
+                has_header=False,
+                aggregate_errors=True,
+            )
+            result = csv_loader.read_rows()
+
+            assert result.has_errors()
+            assert len(result.errors) == 2
+            assert isinstance(result.errors[0], CSVValidationError)
+            assert isinstance(result.errors[1], CSVValidationError)
+            assert result.errors[0].line_number == 0
+            assert result.errors[1].line_number == 1

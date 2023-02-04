@@ -1,0 +1,11 @@
+index,mandatory str,optional str,mandatory int,optional int,mandatory float,optional float
+1,Tyler,Martin,0,0,-2509.91694,
+2,Hunter,,20,1,-15221.35845,-95947.2111
+3,Kevin,Sanchez,8,,40050.61689,
+4,Christopher,Freeman,9,7,74859.09668,-46270.42507
+5,Bryan,Hall,5,,-17964.3768,-67664.05305
+6,Ricky,,81,7,59494.01444,
+7,Anna,,7,6,98680.42175,
+8,Angelica,Evans,27,,58478.98207,58604.80922
+9,Patricia,Brewer,2,,-8726.879,
+10,John,Mitchell,60,,93534.83911,
