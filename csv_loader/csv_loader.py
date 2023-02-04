@@ -40,7 +40,10 @@ class CSVRow(BaseModel):
         if not isinstance(value, str):
             return value
         # strip whitespace if config say so
-        if cls.Config.anystr_strip_whitespace:
+        if (
+            hasattr(cls.Config, "anystr_strip_whitespace")
+            and cls.Config.anystr_strip_whitespace
+        ):
             value = value.strip()
         # no special handling for non-empty strings
         if len(value) > 0:
@@ -50,7 +53,8 @@ class CSVRow(BaseModel):
             return None
         # if string field is annotated as optional with 0 length, set it to None
         if (
-            (
+            hasattr(cls.Config, "empty_optional_str_fields_to_none")
+            and (
                 "__all__" in cls.Config.empty_optional_str_fields_to_none
                 or field.name in cls.Config.empty_optional_str_fields_to_none
             )
