@@ -1,8 +1,14 @@
+import sys
 from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union
 
 from pydantic import BaseModel, ValidationError, validator
 from pydantic.fields import ModelField
-from pydantic.typing import get_args, get_origin
+
+if sys.version_info < (3, 8):
+    from pydantic.typing import get_args, get_origin
+else:
+    from typing import get_args, get_origin
+
 
 CSVReaderType = Iterable[List[str]]
 
@@ -72,11 +78,13 @@ class CSVRows(List[CSVLoaderModelType]):
     """Generic parsed CSV rows containing pydantic models."""
 
     def get_field_values(self, field_name: str) -> List[Any]:
-        """Get list of all values from models for named field."""
+        """Get list of all values from models for named field.
+        Field value order is preserved."""
         return [getattr(row, field_name) for row in self]
 
     def get_field_values_unique(self, field_name: str) -> List[Any]:
-        """Get list of all unique values from models for named field, without duplicates."""
+        """Get list of all unique values from models for named field, without duplicates.
+        Field value order is not preserved."""
         return list(set(self.get_field_values(field_name)))
 
 
