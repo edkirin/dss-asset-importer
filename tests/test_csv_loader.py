@@ -695,7 +695,7 @@ class TestMappingStrategyByModelFieldOrder(TestCase):
     def test_create_model_param_dict(self):
         mapping = MappingStrategyByModelFieldOrder(model_cls=DummyModel)
         row_values = [111, 222, 333]
-        result = mapping.create_model_param_dict(row_index=1, row_values=row_values)
+        result = mapping.create_model_param_dict(row_values=row_values)
 
         assert result == {
             "field_1": 111,
@@ -710,9 +710,9 @@ class TestMappingStrategyByHeader(TestCase):
         row_values = [111, 222, 333]
 
         mapping = MappingStrategyByHeader(model_cls=DummyModel)
-        mapping.create_model_param_dict(row_index=0, row_values=header)
+        mapping.set_header(header)
 
-        result = mapping.create_model_param_dict(row_index=1, row_values=row_values)
+        result = mapping.create_model_param_dict(row_values=row_values)
         assert result == {
             "header_field_1": 111,
             "header_field_2": 222,
@@ -724,14 +724,14 @@ class TestMappingStrategyByHeader(TestCase):
         mapping = MappingStrategyByHeader(model_cls=DummyModel)
 
         with pytest.raises(HeaderNotSetError):
-            mapping.create_model_param_dict(row_index=1, row_values=row_values)
+            mapping.create_model_param_dict(row_values=row_values)
 
     def test_create_model_param_dict__fail_index_out_of_header_bounds(self):
         header = ["header_field_1", "header_field_2", "header_field_3"]
         row_values = [111, 222, 333, 444]
 
         mapping = MappingStrategyByHeader(model_cls=DummyModel)
-        mapping.create_model_param_dict(row_index=0, row_values=header)
+        mapping.set_header(header)
 
         with pytest.raises(IndexOutOfHeaderBounds):
-            mapping.create_model_param_dict(row_index=1, row_values=row_values)
+            mapping.create_model_param_dict(row_values=row_values)

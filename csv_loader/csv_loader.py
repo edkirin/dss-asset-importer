@@ -95,6 +95,7 @@ class CSVLoaderResult(Generic[CSVLoaderModelType]):
 
 class CSVLoader(Generic[CSVLoaderModelType]):
     """Generic CSV file parser."""
+
     def __init__(
         self,
         reader: CSVReaderType,
@@ -121,28 +122,12 @@ class CSVLoader(Generic[CSVLoaderModelType]):
         result = CSVLoaderResult[CSVLoaderModelType]()
 
         for line_number, row in enumerate(self.reader):
-            try:
-                model_create_kwargs = self.mapping_strategy.create_model_param_dict(
-                    row_index=line_number,
-                    row_values=row,
-                )
-            except MappingStrategyError as ex:
-                # create extended error object
-                error = CSVValidationError(
-                    line_number=line_number,
-                    original_error=ex,
-                )
-                if self.aggregate_errors:
-                    # if we're aggregating errors, just add exception to the list
-                    result.errors.append(error)
-                    continue
-                else:
-                    # else just raise error and stop reading rows
-                    raise error
-
-            # skip header, if configured
+            # skip header, if configured and first line
             if self.has_header and line_number == 0:
-                result.header = [field.strip() for field in row]
+                # strip header field names
+                header = [field.strip() for field in row]
+                result.header = header
+                self.mapping_strategy.header = header
                 continue
 
             # skip empty lines
@@ -151,9 +136,13 @@ class CSVLoader(Generic[CSVLoaderModelType]):
 
             row_model = None
             try:
+                # create model kwargs params using mapping strategy
+                model_create_kwargs = self.mapping_strategy.create_model_param_dict(
+                    row_values=row,
+                )
                 # create output model from row data
                 row_model = self.output_model_cls(**model_create_kwargs)
-            except ValidationError as ex:
+            except (MappingStrategyError, ValidationError) as ex:
                 # create extended error object
                 error = CSVValidationError(
                     line_number=line_number,
@@ -166,6 +155,7 @@ class CSVLoader(Generic[CSVLoaderModelType]):
                     # else just raise error and stop reading rows
                     raise error
 
+            # row_model will be None if creation fails and error aggregation is active
             if row_model is not None:
                 result.rows.append(row_model)
 
