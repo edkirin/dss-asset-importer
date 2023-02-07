@@ -7,8 +7,10 @@ from csv_loader.errors import HeaderNotSetError, IndexOutOfHeaderBounds
 
 
 class MappingStrategyBase(ABC):
-    """Mapping strategy implements mechanism of creating params (kwargs) dict from
-    row values which is later used in model creation."""
+    """
+    Mapping strategy implements mechanism of creating params (kwargs) dict from
+    row values which is later used in model creation.
+    """
 
     def __init__(self, model_cls: Type[BaseModel]) -> None:
         self.model_cls = model_cls
@@ -25,8 +27,10 @@ class MappingStrategyBase(ABC):
 
 
 class MappingStrategyByModelFieldOrder(MappingStrategyBase):
-    """Implements 1:1 field assignment. Each row value is assigned to model attribute
-    in order in which is defined in model."""
+    """
+    Implements 1:1 field assignment. Each row value is assigned to model attribute
+    in order in which is defined in model.
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)

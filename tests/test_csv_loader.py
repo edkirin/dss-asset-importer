@@ -10,7 +10,7 @@ from csv_loader import (
     CSVLoaderResult,
     CSVRow,
     CSVRows,
-    MappingStrategyByHeader,
+    MappingStrategyByHeader, MappingStrategyByModelFieldOrder,
 )
 from csv_loader.errors import (
     CSVValidationError,
@@ -558,19 +558,38 @@ class TestCSVLoader(TestCase):
 
 
 class DummyModel(BaseModel):
-    ...
+    field_1: str
+    field_2: str
+    field_3: str
+
+
+class TestMappingStrategyByModelFieldOrder(TestCase):
+    def test_create_model_param_dict(self):
+        mapping = MappingStrategyByModelFieldOrder(model_cls=DummyModel)
+        row_values = [111, 222, 333]
+        result = mapping.create_model_param_dict(row_index=1, row_values=row_values)
+
+        assert result == {
+            "field_1": 111,
+            "field_2": 222,
+            "field_3": 333,
+        }
 
 
 class TestMappingStrategyByHeader(TestCase):
     def test_create_model_param_dict(self):
-        header = ["field_1", "field_2", "field_3"]
+        header = ["header_field_1", "header_field_2", "header_field_3"]
         row_values = [111, 222, 333]
 
         mapping = MappingStrategyByHeader(model_cls=DummyModel)
         mapping.create_model_param_dict(row_index=0, row_values=header)
 
         result = mapping.create_model_param_dict(row_index=1, row_values=row_values)
-        assert result == {"field_1": 111, "field_2": 222, "field_3": 333}
+        assert result == {
+            "header_field_1": 111,
+            "header_field_2": 222,
+            "header_field_3": 333,
+        }
 
     def test_create_model_param_dict__fail_without_header(self):
         row_values = [111, 222, 333]
@@ -580,7 +599,7 @@ class TestMappingStrategyByHeader(TestCase):
             mapping.create_model_param_dict(row_index=1, row_values=row_values)
 
     def test_create_model_param_dict__fail_index_out_of_header_bounds(self):
-        header = ["field_1", "field_2", "field_3"]
+        header = ["header_field_1", "header_field_2", "header_field_3"]
         row_values = [111, 222, 333, 444]
 
         mapping = MappingStrategyByHeader(model_cls=DummyModel)

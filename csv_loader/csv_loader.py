@@ -17,7 +17,8 @@ CSVReaderType = Iterable[List[str]]
 
 
 class CSVRow(BaseModel):
-    """Represents a model base for a single CSV row and implements special handling for string values.
+    """
+    Represents a model base for a single CSV row and implements special handling for string values.
     If given field value is empty, but annotated type is not string, it will be converted to None.
     This is useful for basic types (int, float), to be converted to None if value is not provided.
     It's assumed those fields are annotated as Optional, otherwise pydantic will raise expected
