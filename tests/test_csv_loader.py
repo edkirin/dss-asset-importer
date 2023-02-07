@@ -10,7 +10,8 @@ from csv_loader import (
     CSVLoaderResult,
     CSVRow,
     CSVRows,
-    MappingStrategyByHeader, MappingStrategyByModelFieldOrder,
+    MappingStrategyByHeader,
+    MappingStrategyByModelFieldOrder,
 )
 from csv_loader.errors import (
     CSVValidationError,
@@ -224,6 +225,16 @@ class RandomPersonsFixtureFileRow(CSVRow):
     optional_float: Optional[float]
 
 
+class RandomPersonsFixtureFileRowWithHeaderMapping(CSVRow):
+    mandatory_str: str
+    mandatory_float: float
+    index: int
+    mandatory_int: int
+    optional_float: Optional[float]
+    optional_str: Optional[str]
+    optional_int: Optional[int]
+
+
 class RandomPersonsFixtureFileEmptyStrRow(RandomPersonsFixtureFileRow):
     class Config:
         anystr_strip_whitespace = True
@@ -248,7 +259,6 @@ class TestCSVLoader(TestCase):
                 has_header=True,
                 aggregate_errors=True,
             )
-            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
         assert result.rows == [
@@ -276,7 +286,6 @@ class TestCSVLoader(TestCase):
                 has_header=True,
                 aggregate_errors=True,
             )
-            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
         expected = [
@@ -383,6 +392,127 @@ class TestCSVLoader(TestCase):
             "optional float",
         ]
 
+    def test_read_csv_random_persons__with_optional_none_strings__and_header_mapping_strategy(
+        self,
+    ):
+        with open("fixtures/random-person-with-header-mapping.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[RandomPersonsFixtureFileRowWithHeaderMapping](
+                reader=reader,
+                output_model_cls=RandomPersonsFixtureFileRowWithHeaderMapping,
+                has_header=True,
+                aggregate_errors=True,
+                mapping_strategy=MappingStrategyByHeader(
+                    model_cls=RandomPersonsFixtureFileRowWithHeaderMapping
+                ),
+            )
+            result = csv_loader.read_rows()
+
+        expected = [
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=1,
+                mandatory_str="Tyler",
+                optional_str="Martin",
+                mandatory_int=0,
+                optional_int=0,
+                mandatory_float=-2509.91694,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=2,
+                mandatory_str="Hunter",
+                optional_str=None,
+                mandatory_int=20,
+                optional_int=1,
+                mandatory_float=-15221.35845,
+                optional_float=-95947.2111,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=3,
+                mandatory_str="Kevin",
+                optional_str="Sanchez",
+                mandatory_int=8,
+                optional_int=None,
+                mandatory_float=40050.61689,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=4,
+                mandatory_str="Christopher",
+                optional_str="Freeman",
+                mandatory_int=9,
+                optional_int=7,
+                mandatory_float=74859.09668,
+                optional_float=-46270.42507,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=5,
+                mandatory_str="Bryan",
+                optional_str="Hall",
+                mandatory_int=5,
+                optional_int=None,
+                mandatory_float=-17964.3768,
+                optional_float=-67664.05305,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=6,
+                mandatory_str="Ricky",
+                optional_str=None,
+                mandatory_int=81,
+                optional_int=7,
+                mandatory_float=59494.01444,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=7,
+                mandatory_str="Anna",
+                optional_str=None,
+                mandatory_int=7,
+                optional_int=6,
+                mandatory_float=98680.42175,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=8,
+                mandatory_str="Angelica",
+                optional_str="Evans",
+                mandatory_int=27,
+                optional_int=None,
+                mandatory_float=58478.98207,
+                optional_float=58604.80922,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=9,
+                mandatory_str="Patricia",
+                optional_str="Brewer",
+                mandatory_int=2,
+                optional_int=None,
+                mandatory_float=-8726.879,
+                optional_float=None,
+            ),
+            RandomPersonsFixtureFileRowWithHeaderMapping(
+                index=10,
+                mandatory_str="John",
+                optional_str="Mitchell",
+                mandatory_int=60,
+                optional_int=None,
+                mandatory_float=93534.83911,
+                optional_float=None,
+            ),
+        ]
+        assert result.rows == expected
+        assert result.has_errors() is False
+        assert result.header == [
+            "index",
+            "mandatory_str",
+            "optional_str",
+            "mandatory_int",
+            "optional_int",
+            "mandatory_float",
+            "optional_float",
+        ]
+
     def test_read_csv_random_persons__with_optional_empty_strings(self):
         with open("fixtures/random-person.csv") as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
@@ -393,7 +523,6 @@ class TestCSVLoader(TestCase):
                 has_header=True,
                 aggregate_errors=True,
             )
-            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
         expected = [
@@ -510,7 +639,6 @@ class TestCSVLoader(TestCase):
                 has_header=False,
                 aggregate_errors=False,
             )
-            csv_loader.validate_csv()
 
             with pytest.raises(CSVValidationError) as ex:
                 csv_loader.read_rows()
@@ -532,7 +660,6 @@ class TestCSVLoader(TestCase):
                 has_header=False,
                 aggregate_errors=True,
             )
-            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
             assert result.has_errors()
@@ -546,15 +673,16 @@ class TestCSVLoader(TestCase):
         with open("fixtures/errors.csv") as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
-            csv_loader = CSVLoader[ErrorFixtureFileRow](
-                reader=reader,
-                output_model_cls=ErrorFixtureFileRow,
-                has_header=False,
-                aggregate_errors=True,
-                mapping_strategy=MappingStrategyByHeader(model_cls=ErrorFixtureFileRow),
-            )
             with pytest.raises(HeaderNotSetError):
-                csv_loader.validate_csv()
+                CSVLoader[ErrorFixtureFileRow](
+                    reader=reader,
+                    output_model_cls=ErrorFixtureFileRow,
+                    has_header=False,
+                    aggregate_errors=True,
+                    mapping_strategy=MappingStrategyByHeader(
+                        model_cls=ErrorFixtureFileRow
+                    ),
+                )
 
 
 class DummyModel(BaseModel):
