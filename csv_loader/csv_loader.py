@@ -4,6 +4,9 @@ from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar,
 from pydantic import BaseModel, ValidationError, validator
 from pydantic.fields import ModelField
 
+from csv_loader.errors import CSVValidationError, MappingStrategyError, CSVValidationMissing
+from csv_loader.mapping_strategies import MappingStrategyByModelFieldOrder
+
 if sys.version_info < (3, 8):
     from pydantic.typing import get_args, get_origin
 else:
@@ -11,17 +14,6 @@ else:
 
 
 CSVReaderType = Iterable[List[str]]
-
-
-class CSVValidationError(Exception):
-    """Extended validation exception class containing additional attributes."""
-
-    def __init__(self, line_number: int, original_error: ValidationError) -> None:
-        self.line_number = line_number
-        self.original_error = original_error
-
-    def __str__(self) -> str:
-        return f"Error at line {self.line_number}: {self.original_error}"
 
 
 class CSVRow(BaseModel):
@@ -102,6 +94,7 @@ class CSVLoaderResult(Generic[CSVLoaderModelType]):
 
 class CSVLoader(Generic[CSVLoaderModelType]):
     """Generic CSV file parser."""
+    __validated = False
 
     def __init__(
         self,
@@ -109,18 +102,51 @@ class CSVLoader(Generic[CSVLoaderModelType]):
         output_model_cls: Type[CSVLoaderModelType],
         has_header: Optional[bool] = True,
         aggregate_errors: Optional[bool] = False,
+        mapping_strategy: Optional[Type[MappingStrategyByModelFieldOrder]] = None,
     ) -> None:
         self.reader = reader
         self.output_model_cls = output_model_cls
         self.has_header = has_header
         self.aggregate_errors = aggregate_errors
 
+        if mapping_strategy:
+            self.mapping_strategy = mapping_strategy
+        else:
+            self.mapping_strategy = MappingStrategyByModelFieldOrder(
+                model_cls=self.output_model_cls,
+            )
+
+    def validate_csv(self) -> bool:
+        self.mapping_strategy.verify_csv_loader_configuration(csv_loader=self)
+        self.__validated = True
+        return True
+
     def read_rows(self) -> CSVLoaderResult[CSVLoaderModelType]:
+        if not self.__validated:
+            raise CSVValidationMissing()
+
         result = CSVLoaderResult[CSVLoaderModelType]()
 
-        field_names = self.output_model_cls.__fields__.keys()
-
         for line_number, row in enumerate(self.reader):
+            try:
+                model_create_kwargs = self.mapping_strategy.create_model_param_dict(
+                    row_index=line_number,
+                    row_values=row,
+                )
+            except MappingStrategyError as ex:
+                # create extended error object
+                error = CSVValidationError(
+                    line_number=line_number,
+                    original_error=ex,
+                )
+                if self.aggregate_errors:
+                    # if we're aggregating errors, just add exception to the list
+                    result.errors.append(error)
+                    continue
+                else:
+                    # else just raise error and stop reading rows
+                    raise error
+
             # skip empty lines
             if not row:
                 continue
@@ -130,13 +156,11 @@ class CSVLoader(Generic[CSVLoaderModelType]):
                 result.header = [field.strip() for field in row]
                 continue
 
-            # create dict containing field_name: value
-            kwargs = dict(zip(field_names, row))
-
             row_model = None
             try:
                 # create output model from row data
-                row_model = self.output_model_cls(**kwargs)
+                # row_model = self.output_model_cls(**kwargs)
+                row_model = self.output_model_cls(**model_create_kwargs)
             except ValidationError as ex:
                 # create extended error object
                 error = CSVValidationError(

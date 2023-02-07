@@ -3,8 +3,20 @@ from typing import Optional
 from unittest import TestCase
 
 import pytest
+from pydantic import BaseModel, ValidationError
 
-from csv_loader import CSVLoader, CSVLoaderResult, CSVRow, CSVRows, CSVValidationError
+from csv_loader import (
+    CSVLoader,
+    CSVLoaderResult,
+    CSVRow,
+    CSVRows,
+    MappingStrategyByHeader,
+)
+from csv_loader.errors import (
+    CSVValidationError,
+    HeaderNotSetError,
+    IndexOutOfHeaderBounds,
+)
 
 
 class DefaultCSVRow(CSVRow):
@@ -236,6 +248,7 @@ class TestCSVLoader(TestCase):
                 has_header=True,
                 aggregate_errors=True,
             )
+            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
         assert result.rows == [
@@ -263,6 +276,7 @@ class TestCSVLoader(TestCase):
                 has_header=True,
                 aggregate_errors=True,
             )
+            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
         expected = [
@@ -379,6 +393,7 @@ class TestCSVLoader(TestCase):
                 has_header=True,
                 aggregate_errors=True,
             )
+            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
         expected = [
@@ -495,12 +510,17 @@ class TestCSVLoader(TestCase):
                 has_header=False,
                 aggregate_errors=False,
             )
+            csv_loader.validate_csv()
+
             with pytest.raises(CSVValidationError) as ex:
                 csv_loader.read_rows()
 
             assert isinstance(ex.value, CSVValidationError)
             assert ex.value.line_number == 0
-            assert len(ex.value.original_error.raw_errors) == 4
+            assert (
+                isinstance(ex.value.original_error, ValidationError)
+                and len(ex.value.original_error.raw_errors) == 4
+            )
 
     def test_aggregate_errors(self):
         with open("fixtures/errors.csv") as csv_file:
@@ -512,6 +532,7 @@ class TestCSVLoader(TestCase):
                 has_header=False,
                 aggregate_errors=True,
             )
+            csv_loader.validate_csv()
             result = csv_loader.read_rows()
 
             assert result.has_errors()
@@ -520,3 +541,50 @@ class TestCSVLoader(TestCase):
             assert isinstance(result.errors[1], CSVValidationError)
             assert result.errors[0].line_number == 0
             assert result.errors[1].line_number == 1
+
+    def test_use_mapping_strategy_by_header__fail_without_has_headers_option(self):
+        with open("fixtures/errors.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[ErrorFixtureFileRow](
+                reader=reader,
+                output_model_cls=ErrorFixtureFileRow,
+                has_header=False,
+                aggregate_errors=True,
+                mapping_strategy=MappingStrategyByHeader(model_cls=ErrorFixtureFileRow),
+            )
+            with pytest.raises(HeaderNotSetError):
+                csv_loader.validate_csv()
+
+
+class DummyModel(BaseModel):
+    ...
+
+
+class TestMappingStrategyByHeader(TestCase):
+    def test_create_model_param_dict(self):
+        header = ["field_1", "field_2", "field_3"]
+        row_values = [111, 222, 333]
+
+        mapping = MappingStrategyByHeader(model_cls=DummyModel)
+        mapping.create_model_param_dict(row_index=0, row_values=header)
+
+        result = mapping.create_model_param_dict(row_index=1, row_values=row_values)
+        assert result == {"field_1": 111, "field_2": 222, "field_3": 333}
+
+    def test_create_model_param_dict__fail_without_header(self):
+        row_values = [111, 222, 333]
+        mapping = MappingStrategyByHeader(model_cls=DummyModel)
+
+        with pytest.raises(HeaderNotSetError):
+            mapping.create_model_param_dict(row_index=1, row_values=row_values)
+
+    def test_create_model_param_dict__fail_index_out_of_header_bounds(self):
+        header = ["field_1", "field_2", "field_3"]
+        row_values = [111, 222, 333, 444]
+
+        mapping = MappingStrategyByHeader(model_cls=DummyModel)
+        mapping.create_model_param_dict(row_index=0, row_values=header)
+
+        with pytest.raises(IndexOutOfHeaderBounds):
+            mapping.create_model_param_dict(row_index=1, row_values=row_values)
