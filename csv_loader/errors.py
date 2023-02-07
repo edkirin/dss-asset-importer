@@ -1,7 +1,3 @@
-class CSVValidationMissing(Exception):
-    detail = "CSV loader needs to be validated prior to row parsing"
-
-
 class CSVValidationError(Exception):
     """Extended validation exception class containing additional attributes."""
 

@@ -22,7 +22,7 @@ class MappingStrategyBase(ABC):
         """Create initial model params dict."""
 
     @classmethod
-    def verify_csv_loader_configuration(cls, csv_loader) -> bool:
+    def validate_csv_loader_configuration(cls, csv_loader) -> bool:
         return True
 
 
@@ -50,7 +50,7 @@ class MappingStrategyByHeader(MappingStrategyBase):
         self.header: List[str] = []
 
     @classmethod
-    def verify_csv_loader_configuration(cls, csv_loader) -> bool:
+    def validate_csv_loader_configuration(cls, csv_loader) -> bool:
         if not csv_loader.has_header:
             raise HeaderNotSetError()
         return True

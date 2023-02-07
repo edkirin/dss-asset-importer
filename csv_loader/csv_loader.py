@@ -4,7 +4,7 @@ from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar,
 from pydantic import BaseModel, ValidationError, validator
 from pydantic.fields import ModelField
 
-from csv_loader.errors import CSVValidationError, MappingStrategyError, CSVValidationMissing
+from csv_loader.errors import CSVValidationError, MappingStrategyError
 from csv_loader.mapping_strategies import MappingStrategyByModelFieldOrder
 
 if sys.version_info < (3, 8):
@@ -95,15 +95,13 @@ class CSVLoaderResult(Generic[CSVLoaderModelType]):
 
 class CSVLoader(Generic[CSVLoaderModelType]):
     """Generic CSV file parser."""
-    __validated = False
-
     def __init__(
         self,
         reader: CSVReaderType,
         output_model_cls: Type[CSVLoaderModelType],
         has_header: Optional[bool] = True,
         aggregate_errors: Optional[bool] = False,
-        mapping_strategy: Optional[Type[MappingStrategyByModelFieldOrder]] = None,
+        mapping_strategy: Optional[MappingStrategyByModelFieldOrder] = None,
     ) -> None:
         self.reader = reader
         self.output_model_cls = output_model_cls
@@ -117,15 +115,9 @@ class CSVLoader(Generic[CSVLoaderModelType]):
                 model_cls=self.output_model_cls,
             )
 
-    def validate_csv(self) -> bool:
-        self.mapping_strategy.verify_csv_loader_configuration(csv_loader=self)
-        self.__validated = True
-        return True
+        self.mapping_strategy.validate_csv_loader_configuration(csv_loader=self)
 
     def read_rows(self) -> CSVLoaderResult[CSVLoaderModelType]:
-        if not self.__validated:
-            raise CSVValidationMissing()
-
         result = CSVLoaderResult[CSVLoaderModelType]()
 
         for line_number, row in enumerate(self.reader):
