@@ -39,11 +39,12 @@ class MappingStrategyByModelFieldOrder(MappingStrategyBase):
     def create_model_param_dict(
         self, row_index: int, row_values: List[Any]
     ) -> Dict[str, Any]:
+        # map model field names as dict keys
         return dict(zip(self.field_names, row_values))
 
 
 class MappingStrategyByHeader(MappingStrategyBase):
-    """Implements by-header assignment. Header must be present"""
+    """Implements by-header assignment. Header must be present."""
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -58,20 +59,17 @@ class MappingStrategyByHeader(MappingStrategyBase):
     def create_model_param_dict(
         self, row_index: int, row_values: List[Any]
     ) -> Dict[str, Any]:
+        # assume it's header in line 0
         if row_index == 0:
             self.header = row_values
 
+        # header not set? stop! hammer time!
         if not self.header:
             raise HeaderNotSetError()
 
-        header_len = len(self.header)
-        param_dict = {}
+        # header too short, can't do
+        if len(row_values) > len(self.header):
+            raise IndexOutOfHeaderBounds()
 
-        for index, field_value in enumerate(row_values):
-            if index >= header_len:
-                raise IndexOutOfHeaderBounds()
-
-            field_name = self.header[index]
-            param_dict[field_name] = field_value
-
-        return param_dict
+        # map header values as dict keys
+        return dict(zip(self.header, row_values))
