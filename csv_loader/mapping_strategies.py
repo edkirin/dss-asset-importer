@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List, Type, cast
 
 from pydantic import BaseModel
 
@@ -22,7 +22,7 @@ class MappingStrategyBase(ABC):
         """Create initial model params dict."""
 
     @classmethod
-    def validate_csv_loader_configuration(cls, csv_loader) -> bool:
+    def validate_csv_loader_configuration(cls, csv_loader: object) -> bool:
         return True
 
 
@@ -51,9 +51,14 @@ class MappingStrategyByHeader(MappingStrategyBase):
         self.header: List[str] = []
 
     @classmethod
-    def validate_csv_loader_configuration(cls, csv_loader) -> bool:
+    def validate_csv_loader_configuration(cls, csv_loader: object) -> bool:
+        # avoid circular imports and keep mypy happy
+        from .csv_loader import CSVLoader
+        csv_loader = cast(CSVLoader, csv_loader)
+
         if not csv_loader.has_header:
             raise HeaderNotSetError()
+
         return True
 
     def create_model_param_dict(
