@@ -140,19 +140,18 @@ class CSVLoader(Generic[CSVLoaderModelType]):
                     # else just raise error and stop reading rows
                     raise error
 
-            # skip empty lines
-            if not row:
-                continue
-
             # skip header, if configured
             if self.has_header and line_number == 0:
                 result.header = [field.strip() for field in row]
                 continue
 
+            # skip empty lines
+            if not row:
+                continue
+
             row_model = None
             try:
                 # create output model from row data
-                # row_model = self.output_model_cls(**kwargs)
                 row_model = self.output_model_cls(**model_create_kwargs)
             except ValidationError as ex:
                 # create extended error object
