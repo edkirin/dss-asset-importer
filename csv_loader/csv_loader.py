@@ -1,17 +1,12 @@
-import sys
-from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar, Union
+from __future__ import annotations
+
+from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError, validator
 from pydantic.fields import ModelField
 
-from csv_loader.errors import CSVValidationError, MappingStrategyError
-from csv_loader.mapping_strategies import MappingStrategyByModelFieldOrder
-
-if sys.version_info < (3, 8):
-    from pydantic.typing import get_args, get_origin
-else:
-    from typing import get_args, get_origin
-
+from .errors import CSVValidationError, MappingStrategyError
+from .mapping_strategies import MappingStrategyByModelFieldOrder
 
 CSVReaderType = Iterable[List[str]]
 
@@ -34,15 +29,14 @@ class CSVRow(BaseModel):
         Default magic value is "__all__" to convert all fields."""
 
     @validator("*", pre=True)
-    def prepare_str_value(cls, value: Any, field: ModelField) -> Optional[Any]:
+    def prepare_str_value(
+        cls: CSVRow, value: Any, field: ModelField  # noqa: ANN401
+    ) -> Optional[Any]:
         # not a string? just return value, pydantic validator will do the rest
         if not isinstance(value, str):
             return value
         # strip whitespace if config say so
-        if (
-            hasattr(cls.Config, "anystr_strip_whitespace")
-            and cls.Config.anystr_strip_whitespace
-        ):
+        if hasattr(cls.Config, "anystr_strip_whitespace") and cls.Config.anystr_strip_whitespace:
             value = value.strip()
         # no special handling for non-empty strings
         if len(value) > 0:
@@ -57,8 +51,7 @@ class CSVRow(BaseModel):
                 "__all__" in cls.Config.empty_optional_str_fields_to_none
                 or field.name in cls.Config.empty_optional_str_fields_to_none
             )
-            and get_origin(field.annotation) is Union
-            and get_args(field.annotation)[1] is type(None)
+            and not field.required
         ):
             return None
         return value
@@ -94,7 +87,36 @@ class CSVLoaderResult(Generic[CSVLoaderModelType]):
 
 
 class CSVLoader(Generic[CSVLoaderModelType]):
-    """Generic CSV file parser."""
+    """
+    Generic CSV file parser.
+    Uses standard csv reader to fetch csv rows, validate against provided
+    pydantic model and returns list of created models together with
+    aggregated error list.
+
+    Example:
+
+        with open("data.csv") as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[MyRowModel](
+                reader=reader,
+                output_model_cls=MyRowModel,
+                has_header=True,
+                aggregate_errors=True,
+            )
+
+            result = csv_loader.read_rows()
+            if result.has_errors():
+                print("Errors:")
+                for error in result.errors:
+                    print(error)
+
+            print("Created models:")
+            for row in result.rows:
+                print(row.index, row.organization_id)
+
+        See tests/adapters/tools/test_csv_loader.py for more examples.
+    """
 
     def __init__(
         self,
@@ -127,7 +149,7 @@ class CSVLoader(Generic[CSVLoaderModelType]):
                 # strip header field names
                 header = [field.strip() for field in row]
                 result.header = header
-                self.mapping_strategy.header = header
+                self.mapping_strategy.set_header(header)
                 continue
 
             # skip empty lines

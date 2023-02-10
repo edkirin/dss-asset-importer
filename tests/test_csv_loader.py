@@ -1,15 +1,18 @@
 import csv
+from pathlib import Path
 from typing import Optional
 from unittest import TestCase
 
 import pytest
 from pydantic import BaseModel, ValidationError
 
+import tests.fixtures
 from csv_loader import (
     CSVLoader,
     CSVLoaderResult,
     CSVRow,
     CSVRows,
+    HeaderRemapField,
     MappingStrategyByHeader,
     MappingStrategyByModelFieldOrder,
 )
@@ -31,6 +34,13 @@ class DefaultCSVRow(CSVRow):
     class Config:
         anystr_strip_whitespace = True
         empty_optional_str_fields_to_none = ("__all__",)
+
+
+FIXTURES_PATH = Path(tests.fixtures.__file__).parent.joinpath("csv_loader")
+
+
+def get_fixture_file_path(filename: str) -> Path:
+    return FIXTURES_PATH.joinpath(filename)
 
 
 class TestCSVRowValidation(TestCase):
@@ -250,7 +260,7 @@ class ErrorFixtureFileRow(CSVRow):
 
 class TestCSVLoader(TestCase):
     def test_read_csv_file_1(self):
-        with open("fixtures/simple.csv") as csv_file:
+        with open(get_fixture_file_path("simple.csv")) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             csv_loader = CSVLoader[SimpleFixtureFileRow](
@@ -277,7 +287,7 @@ class TestCSVLoader(TestCase):
         assert result.header == ["Index", "Organization Id", "Random letters"]
 
     def test_read_csv_random_persons__with_optional_none_strings(self):
-        with open("fixtures/random-person.csv") as csv_file:
+        with open(get_fixture_file_path("random-person.csv")) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             csv_loader = CSVLoader[RandomPersonsFixtureFileRow](
@@ -395,7 +405,9 @@ class TestCSVLoader(TestCase):
     def test_read_csv_random_persons__with_optional_none_strings__and_header_mapping_strategy(
         self,
     ):
-        with open("fixtures/random-person-with-header-mapping.csv") as csv_file:
+        with open(
+            get_fixture_file_path("random-person-with-header-mapping.csv")
+        ) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             csv_loader = CSVLoader[RandomPersonsFixtureFileRowWithHeaderMapping](
@@ -514,7 +526,7 @@ class TestCSVLoader(TestCase):
         ]
 
     def test_read_csv_random_persons__with_optional_empty_strings(self):
-        with open("fixtures/random-person.csv") as csv_file:
+        with open(get_fixture_file_path("random-person.csv")) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             csv_loader = CSVLoader[RandomPersonsFixtureFileEmptyStrRow](
@@ -630,7 +642,7 @@ class TestCSVLoader(TestCase):
         ]
 
     def test_stop_on_first_error(self):
-        with open("fixtures/errors.csv") as csv_file:
+        with open(get_fixture_file_path("errors.csv")) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             csv_loader = CSVLoader[ErrorFixtureFileRow](
@@ -651,7 +663,7 @@ class TestCSVLoader(TestCase):
             )
 
     def test_aggregate_errors(self):
-        with open("fixtures/errors.csv") as csv_file:
+        with open(get_fixture_file_path("errors.csv")) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             csv_loader = CSVLoader[ErrorFixtureFileRow](
@@ -670,7 +682,7 @@ class TestCSVLoader(TestCase):
             assert result.errors[1].line_number == 1
 
     def test_use_mapping_strategy_by_header__fail_without_has_headers_option(self):
-        with open("fixtures/errors.csv") as csv_file:
+        with open(get_fixture_file_path("errors.csv")) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             with pytest.raises(HeaderNotSetError):
@@ -735,3 +747,50 @@ class TestMappingStrategyByHeader(TestCase):
 
         with pytest.raises(IndexOutOfHeaderBounds):
             mapping.create_model_param_dict(row_values=row_values)
+
+    def test_remap_header_mapping(self):
+        header_mapping = {
+            "field 2": 222,
+            "field 3": 333,
+            "field 1": 111,
+        }
+        header_remap = [
+            HeaderRemapField(header_field="field 3", model_attr="out_field_3"),
+            HeaderRemapField(header_field="field 1", model_attr="out_field_1"),
+            HeaderRemapField(header_field="field 2", model_attr="out_field_2"),
+        ]
+        result = MappingStrategyByHeader._remap_header_mapping(
+            header_mapping=header_mapping, header_remap=header_remap
+        )
+        assert result == {
+            "out_field_1": 111,
+            "out_field_2": 222,
+            "out_field_3": 333,
+        }
+
+    def test_create_model_param_dict__with_header_remap(self):
+        header = ["Header Field 1", "Header Field 2", "Header Field 3"]
+        row_values = [111, 222, 333]
+
+        mapping = MappingStrategyByHeader(
+            model_cls=DummyModel,
+            header_remap_fields=[
+                HeaderRemapField(
+                    header_field="Header Field 1", model_attr="header_field_1"
+                ),
+                HeaderRemapField(
+                    header_field="Header Field 2", model_attr="header_field_2"
+                ),
+                HeaderRemapField(
+                    header_field="Header Field 3", model_attr="header_field_3"
+                ),
+            ],
+        )
+        mapping.set_header(header)
+
+        result = mapping.create_model_param_dict(row_values=row_values)
+        assert result == {
+            "header_field_1": 111,
+            "header_field_2": 222,
+            "header_field_3": 333,
+        }
