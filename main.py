@@ -104,7 +104,7 @@ def process_big_data() -> None:
     print("Processing Big Data")
     t = time.perf_counter()
 
-    with open("/tmp/big-data-set-10.000.csv") as csv_file:
+    with open("/tmp/big-data-set-100.000.csv") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
 
         csv_loader = CSVLoader[BigDatasetRow](
@@ -131,16 +131,15 @@ def process_big_data() -> None:
         #         )
 
     t_elapsed = time.perf_counter() - t
-    print(f"T load: {t_elapsed:0.3f}")
+    print(f"[T] load and parse CSV file: {t_elapsed:0.3f}")
 
-    print("-" * 50)
     t = time.perf_counter()
-    field_name = "barcode_1"
+    field_name = "int_1"
     duplicates = result.rows.get_field_duplicates(field_name=field_name)
     # print(duplicates)
 
     t_elapsed = time.perf_counter() - t
-    print(f"T duplicates ({field_name}): {t_elapsed:0.3f}")
+    print(f"[T] find duplicates ({field_name}): {t_elapsed:0.3f}")
     print(f"duplicates found: {len(duplicates)}")
     t = time.perf_counter()
 
