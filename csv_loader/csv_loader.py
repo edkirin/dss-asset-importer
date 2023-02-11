@@ -106,14 +106,40 @@ class CSVRows(List[CSVLoaderModelType]):
         return value in self.get_field_values(field_name)
 
     def get_field_duplicates(self, field_name: str) -> List[CSVFieldDuplicate]:
-        check_dict: Dict[Any, List] = {}
+        # return self.get_field_duplicates_working(field_name)
+        return self.get_field_duplicates_dict(field_name)
+
+    def get_field_duplicates_working(self, field_name: str) -> List[CSVFieldDuplicate]:
+        result: List[CSVFieldDuplicate] = []
+        matched_rows = set()
+
         all_field_values = self.get_field_values(field_name)
 
         for row_index, value in enumerate(all_field_values):
-            if value in check_dict:
-                check_dict[value].append(row_index)
-            else:
-                check_dict[value] = [row_index]
+            if row_index in matched_rows:
+                continue
+            offs = row_index + 1
+            found_in_rows = [
+                i + offs for i, v in enumerate(all_field_values[offs:]) if v == value
+            ]
+            if found_in_rows:
+                matched_rows.update(found_in_rows)
+                found_in_rows.extend([row_index])
+
+                result.append(
+                    CSVFieldDuplicate(
+                        value=value,
+                        duplicate_rows=sorted(found_in_rows),
+                    )
+                )
+        return result
+
+    def get_field_duplicates_dict(self, field_name: str) -> List[CSVFieldDuplicate]:
+        check_dict: Dict[Any, List] = collections.defaultdict(list)
+        all_field_values = self.get_field_values(field_name)
+
+        for row_index, value in enumerate(all_field_values):
+            check_dict[value].append(row_index)
 
         result: List[CSVFieldDuplicate] = [
             CSVFieldDuplicate(
@@ -124,6 +150,39 @@ class CSVRows(List[CSVLoaderModelType]):
             if len(found_in_rows) > 1
         ]
 
+        return result
+
+    def get_field_duplicates_x(self, field_name: str) -> List[CSVFieldDuplicate]:
+        result: List[CSVFieldDuplicate] = []
+        matched_rows = set()
+        all_field_values = self.get_field_values(field_name)
+        all_field_values_len = len(all_field_values)
+
+        for row_index, value in enumerate(all_field_values):
+            if row_index in matched_rows:
+                continue
+
+            found_in_rows = []
+            # for i in range(row_index, all_field_values_len - 1):
+            #     if all_field_values[i] == value:
+            #         found_in_rows.append(i)
+
+            n = row_index
+            while n < all_field_values_len:
+                if all_field_values[n] == value:
+                    found_in_rows.append(n)
+                n += 1
+
+            if len(found_in_rows):
+                matched_rows.update(set(found_in_rows))
+                found_in_rows.extend([row_index])
+
+                result.append(
+                    CSVFieldDuplicate(
+                        value=value,
+                        duplicate_rows=sorted(found_in_rows),
+                    )
+                )
         return result
 
 
