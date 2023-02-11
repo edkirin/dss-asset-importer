@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import collections
 from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError, validator
@@ -9,6 +10,18 @@ from .errors import CSVValidationError, MappingStrategyError
 from .mapping_strategies import MappingStrategyByModelFieldOrder
 
 CSVReaderType = Iterable[List[str]]
+BoolValuePair = collections.namedtuple("BoolValuePair", ["true", "false"])
+
+
+class CSVRowDefaultConfig:
+    anystr_strip_whitespace: bool = True
+    """Standard pydantic config flag, set default to True."""
+    empty_optional_str_fields_to_none: Tuple = ("__all__",)
+    """List of optional string fields which will be converted to None, if empty.
+    Default magic value is "__all__" to convert all fields."""
+    bool_value_pair: BoolValuePair = BoolValuePair(true="1", false="0")
+    """Possible boolean values for true and false. If the actual value
+    is not in defined pair, value will be parsed as None."""
 
 
 class CSVRow(BaseModel):
@@ -21,12 +34,11 @@ class CSVRow(BaseModel):
     See Config inner class for more options.
     """
 
-    class Config:
-        anystr_strip_whitespace: bool = True
-        """Standard pydantic config flag, set default to True."""
-        empty_optional_str_fields_to_none: Tuple = ("__all__",)
-        """List of optional string fields which will be converted to None, if empty.
-        Default magic value is "__all__" to convert all fields."""
+    class Config(CSVRowDefaultConfig):
+        """
+        Defaults from CSVRowDefaultConfig will be used. If you're defining your own Config in
+        custom CSVRow class, make sure it inherits `CSVRowDefaultConfig`
+        """
 
     @validator("*", pre=True)
     def prepare_str_value(
@@ -36,8 +48,17 @@ class CSVRow(BaseModel):
         if not isinstance(value, str):
             return value
         # strip whitespace if config say so
-        if hasattr(cls.Config, "anystr_strip_whitespace") and cls.Config.anystr_strip_whitespace:
+        if cls.Config.anystr_strip_whitespace:
             value = value.strip()
+
+        # special handling for bool values
+        if field.type_ is bool:
+            if value == cls.Config.bool_value_pair.true:
+                return True
+            if value == cls.Config.bool_value_pair.false:
+                return False
+            return None
+
         # no special handling for non-empty strings
         if len(value) > 0:
             return value
@@ -46,13 +67,9 @@ class CSVRow(BaseModel):
             return None
         # if string field is annotated as optional with 0 length, set it to None
         if (
-            hasattr(cls.Config, "empty_optional_str_fields_to_none")
-            and (
-                "__all__" in cls.Config.empty_optional_str_fields_to_none
-                or field.name in cls.Config.empty_optional_str_fields_to_none
-            )
-            and not field.required
-        ):
+            "__all__" in cls.Config.empty_optional_str_fields_to_none
+            or field.name in cls.Config.empty_optional_str_fields_to_none
+        ) and not field.required:
             return None
         return value
 

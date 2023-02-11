@@ -1,7 +1,9 @@
 import csv
+import time
 from typing import Optional
 
 from csv_loader import CSVLoader, CSVRow
+from csv_loader.csv_loader import BoolValuePair, CSVRowDefaultConfig
 
 
 class Example1Row(CSVRow):
@@ -21,6 +23,37 @@ class Example2Row(CSVRow):
     index: int
     organization_id: Optional[str]
     random_letters: str
+
+
+class BigDatasetRow(CSVRow):
+    index: int
+    first_name: str
+    last_name: str
+    street_address: str
+    city: str
+    country: str
+    iban: str
+    barcode_1: str
+    barcode_2: str
+    barcode_3: str
+    float_1: float
+    float_2: float
+    float_3: float
+    float_4: float
+    float_5: float
+    int_1: int
+    int_2: int
+    int_3: int
+    int_4: int
+    int_5: int
+    bool_1: bool
+    bool_2: bool
+    bool_3: bool
+    bool_4: bool
+    bool_5: bool
+
+    class Config(CSVRowDefaultConfig):
+        bool_value_pair = BoolValuePair(true="YES", false="NO")
 
 
 def process_example_1() -> None:
@@ -63,9 +96,44 @@ def process_example_2() -> None:
             print(row)
 
 
+def process_big_data() -> None:
+    print("Processing Big Data")
+    t = time.perf_counter()
+
+    with open("/tmp/big-data-set.csv") as csv_file:
+        reader = csv.reader(csv_file, delimiter=",")
+
+        csv_loader = CSVLoader[BigDatasetRow](
+            reader=reader,
+            output_model_cls=BigDatasetRow,
+            has_header=True,
+            aggregate_errors=True,
+        )
+
+        result = csv_loader.read_rows()
+        # print(f"Row count: {len(result.rows)}")
+        if result.has_errors():
+            for error in result.errors:
+                print(error)
+        # else:
+        #     for row in result.rows:
+        #         print(
+        #             row.index,
+        #             row.bool_1,
+        #             row.bool_2,
+        #             row.bool_3,
+        #             row.bool_4,
+        #             row.bool_5,
+        #         )
+
+    t_elapsed = time.perf_counter() - t
+    print(f"T: {t_elapsed:0.3f}")
+
+
 def main() -> None:
-    process_example_1()
-    process_example_2()
+    # process_example_1()
+    # process_example_2()
+    process_big_data()
 
 
 if __name__ == "__main__":

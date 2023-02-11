@@ -6,8 +6,8 @@ from unittest import TestCase
 import pytest
 from pydantic import BaseModel, ValidationError
 
-import tests.fixtures
-from csv_loader import (
+import tests.adapters.tools.fixtures
+from adapters.tools.csv_loader import (
     CSVLoader,
     CSVLoaderResult,
     CSVRow,
@@ -16,7 +16,8 @@ from csv_loader import (
     MappingStrategyByHeader,
     MappingStrategyByModelFieldOrder,
 )
-from csv_loader.errors import (
+from adapters.tools.csv_loader.csv_loader import BoolValuePair, CSVRowDefaultConfig
+from adapters.tools.csv_loader.errors import (
     CSVValidationError,
     HeaderNotSetError,
     IndexOutOfHeaderBounds,
@@ -31,12 +32,8 @@ class DefaultCSVRow(CSVRow):
     field_opt_str: Optional[str]
     field_opt_float: Optional[float]
 
-    class Config:
-        anystr_strip_whitespace = True
-        empty_optional_str_fields_to_none = ("__all__",)
 
-
-FIXTURES_PATH = Path(tests.fixtures.__file__).parent.joinpath("csv_loader")
+FIXTURES_PATH = Path(tests.adapters.tools.fixtures.__file__).parent.joinpath("csv_loader")
 
 
 def get_fixture_file_path(filename: str) -> Path:
@@ -121,8 +118,7 @@ class TestCSVRowValidation(TestCase):
             field_str_dont_touch_7: str
             field_str_dont_touch_8: str
 
-            class Config:
-                anystr_strip_whitespace = True
+            class Config(CSVRowDefaultConfig):
                 empty_optional_str_fields_to_none = (
                     "field_opt_str_1",
                     "field_opt_str_3",
@@ -223,6 +219,10 @@ class SimpleFixtureFileRow(CSVRow):
     index: int
     organization_id: Optional[str]
     random_letters: str
+    mandatory_bool: bool
+
+    class Config(CSVRowDefaultConfig):
+        bool_value_pair = BoolValuePair(true="Y", false="N")
 
 
 class RandomPersonsFixtureFileRow(CSVRow):
@@ -233,6 +233,11 @@ class RandomPersonsFixtureFileRow(CSVRow):
     optional_int: Optional[int]
     mandatory_float: float
     optional_float: Optional[float]
+    mandatory_bool: bool
+    optional_bool: Optional[bool]
+
+    class Config(CSVRowDefaultConfig):
+        bool_value_pair = BoolValuePair(true="Y", false="N")
 
 
 class RandomPersonsFixtureFileRowWithHeaderMapping(CSVRow):
@@ -240,13 +245,18 @@ class RandomPersonsFixtureFileRowWithHeaderMapping(CSVRow):
     mandatory_float: float
     index: int
     mandatory_int: int
+    mandatory_bool: bool
     optional_float: Optional[float]
     optional_str: Optional[str]
     optional_int: Optional[int]
+    optional_bool: Optional[bool]
+
+    class Config(CSVRowDefaultConfig):
+        bool_value_pair = BoolValuePair(true="Y", false="N")
 
 
 class RandomPersonsFixtureFileEmptyStrRow(RandomPersonsFixtureFileRow):
-    class Config:
+    class Config(RandomPersonsFixtureFileRow.Config):
         anystr_strip_whitespace = True
         empty_optional_str_fields_to_none = ("",)
 
@@ -273,18 +283,26 @@ class TestCSVLoader(TestCase):
 
         assert result.rows == [
             SimpleFixtureFileRow(
-                index=1, organization_id="FAB0d41d5b5d22c", random_letters="AAA"
+                index=1,
+                organization_id="FAB0d41d5b5d22c",
+                random_letters="AAA",
+                mandatory_bool=True,
             ),
-            SimpleFixtureFileRow(index=2, organization_id=None, random_letters="BBB"),
             SimpleFixtureFileRow(
-                index=3, organization_id="0bFED1ADAE4bcC1", random_letters="CCC"
+                index=2, organization_id=None, random_letters="BBB", mandatory_bool=False
             ),
             SimpleFixtureFileRow(
-                index=4, organization_id="2bFC1Be8a4ce42f", random_letters=""
+                index=3,
+                organization_id="0bFED1ADAE4bcC1",
+                random_letters="CCC",
+                mandatory_bool=True,
+            ),
+            SimpleFixtureFileRow(
+                index=4, organization_id="2bFC1Be8a4ce42f", random_letters="", mandatory_bool=False
             ),
         ]
         assert result.has_errors() is False
-        assert result.header == ["Index", "Organization Id", "Random letters"]
+        assert result.header == ["Index", "Organization Id", "Random letters", "Boolean value"]
 
     def test_read_csv_random_persons__with_optional_none_strings(self):
         with open(get_fixture_file_path("random-person.csv")) as csv_file:
@@ -306,88 +324,64 @@ class TestCSVLoader(TestCase):
                 mandatory_int=0,
                 optional_int=0,
                 mandatory_float=-2509.91694,
-                optional_float=None,
+                optional_float=-95947.2111,
+                mandatory_bool=True,
+                optional_bool=True,
             ),
             RandomPersonsFixtureFileRow(
                 index=2,
-                mandatory_str="Hunter",
-                optional_str=None,
-                mandatory_int=20,
-                optional_int=1,
-                mandatory_float=-15221.35845,
-                optional_float=-95947.2111,
-            ),
-            RandomPersonsFixtureFileRow(
-                index=3,
                 mandatory_str="Kevin",
                 optional_str="Sanchez",
                 mandatory_int=8,
                 optional_int=None,
                 mandatory_float=40050.61689,
                 optional_float=None,
+                mandatory_bool=True,
+                optional_bool=None,
             ),
             RandomPersonsFixtureFileRow(
-                index=4,
+                index=3,
                 mandatory_str="Christopher",
                 optional_str="Freeman",
                 mandatory_int=9,
                 optional_int=7,
                 mandatory_float=74859.09668,
                 optional_float=-46270.42507,
+                mandatory_bool=True,
+                optional_bool=False,
             ),
             RandomPersonsFixtureFileRow(
-                index=5,
+                index=4,
                 mandatory_str="Bryan",
                 optional_str="Hall",
                 mandatory_int=5,
                 optional_int=None,
                 mandatory_float=-17964.3768,
-                optional_float=-67664.05305,
+                optional_float=58604.80922,
+                mandatory_bool=False,
+                optional_bool=None,
             ),
             RandomPersonsFixtureFileRow(
-                index=6,
-                mandatory_str="Ricky",
-                optional_str=None,
-                mandatory_int=81,
-                optional_int=7,
-                mandatory_float=59494.01444,
-                optional_float=None,
-            ),
-            RandomPersonsFixtureFileRow(
-                index=7,
+                index=5,
                 mandatory_str="Anna",
                 optional_str=None,
                 mandatory_int=7,
                 optional_int=6,
                 mandatory_float=98680.42175,
                 optional_float=None,
+                mandatory_bool=False,
+                optional_bool=True,
             ),
             RandomPersonsFixtureFileRow(
-                index=8,
-                mandatory_str="Angelica",
-                optional_str="Evans",
-                mandatory_int=27,
-                optional_int=None,
-                mandatory_float=58478.98207,
-                optional_float=58604.80922,
-            ),
-            RandomPersonsFixtureFileRow(
-                index=9,
+                index=6,
                 mandatory_str="Patricia",
                 optional_str="Brewer",
                 mandatory_int=2,
                 optional_int=None,
-                mandatory_float=-8726.879,
+                mandatory_float=-8726879,
                 optional_float=None,
-            ),
-            RandomPersonsFixtureFileRow(
-                index=10,
-                mandatory_str="John",
-                optional_str="Mitchell",
-                mandatory_int=60,
-                optional_int=None,
-                mandatory_float=93534.83911,
-                optional_float=None,
+                mandatory_bool=False,
+                optional_bool=False,
             ),
         ]
         assert result.rows == expected
@@ -400,14 +394,14 @@ class TestCSVLoader(TestCase):
             "optional int",
             "mandatory float",
             "optional float",
+            "mandatory bool",
+            "optional bool",
         ]
 
     def test_read_csv_random_persons__with_optional_none_strings__and_header_mapping_strategy(
         self,
     ):
-        with open(
-            get_fixture_file_path("random-person-with-header-mapping.csv")
-        ) as csv_file:
+        with open(get_fixture_file_path("random-person-with-header-mapping.csv")) as csv_file:
             reader = csv.reader(csv_file, delimiter=",")
 
             csv_loader = CSVLoader[RandomPersonsFixtureFileRowWithHeaderMapping](
@@ -429,88 +423,64 @@ class TestCSVLoader(TestCase):
                 mandatory_int=0,
                 optional_int=0,
                 mandatory_float=-2509.91694,
-                optional_float=None,
+                optional_float=-95947.2111,
+                mandatory_bool=True,
+                optional_bool=True,
             ),
             RandomPersonsFixtureFileRowWithHeaderMapping(
                 index=2,
-                mandatory_str="Hunter",
-                optional_str=None,
-                mandatory_int=20,
-                optional_int=1,
-                mandatory_float=-15221.35845,
-                optional_float=-95947.2111,
-            ),
-            RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=3,
                 mandatory_str="Kevin",
                 optional_str="Sanchez",
                 mandatory_int=8,
                 optional_int=None,
                 mandatory_float=40050.61689,
                 optional_float=None,
+                mandatory_bool=True,
+                optional_bool=None,
             ),
             RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=4,
+                index=3,
                 mandatory_str="Christopher",
                 optional_str="Freeman",
                 mandatory_int=9,
                 optional_int=7,
                 mandatory_float=74859.09668,
                 optional_float=-46270.42507,
+                mandatory_bool=True,
+                optional_bool=False,
             ),
             RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=5,
+                index=4,
                 mandatory_str="Bryan",
                 optional_str="Hall",
                 mandatory_int=5,
                 optional_int=None,
                 mandatory_float=-17964.3768,
-                optional_float=-67664.05305,
+                optional_float=58604.80922,
+                mandatory_bool=False,
+                optional_bool=None,
             ),
             RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=6,
-                mandatory_str="Ricky",
-                optional_str=None,
-                mandatory_int=81,
-                optional_int=7,
-                mandatory_float=59494.01444,
-                optional_float=None,
-            ),
-            RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=7,
+                index=5,
                 mandatory_str="Anna",
                 optional_str=None,
                 mandatory_int=7,
                 optional_int=6,
                 mandatory_float=98680.42175,
                 optional_float=None,
+                mandatory_bool=False,
+                optional_bool=True,
             ),
             RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=8,
-                mandatory_str="Angelica",
-                optional_str="Evans",
-                mandatory_int=27,
-                optional_int=None,
-                mandatory_float=58478.98207,
-                optional_float=58604.80922,
-            ),
-            RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=9,
+                index=6,
                 mandatory_str="Patricia",
                 optional_str="Brewer",
                 mandatory_int=2,
                 optional_int=None,
-                mandatory_float=-8726.879,
+                mandatory_float=-8726879,
                 optional_float=None,
-            ),
-            RandomPersonsFixtureFileRowWithHeaderMapping(
-                index=10,
-                mandatory_str="John",
-                optional_str="Mitchell",
-                mandatory_int=60,
-                optional_int=None,
-                mandatory_float=93534.83911,
-                optional_float=None,
+                mandatory_bool=False,
+                optional_bool=False,
             ),
         ]
         assert result.rows == expected
@@ -523,6 +493,8 @@ class TestCSVLoader(TestCase):
             "optional_int",
             "mandatory_float",
             "optional_float",
+            "mandatory_bool",
+            "optional_bool",
         ]
 
     def test_read_csv_random_persons__with_optional_empty_strings(self):
@@ -545,88 +517,64 @@ class TestCSVLoader(TestCase):
                 mandatory_int=0,
                 optional_int=0,
                 mandatory_float=-2509.91694,
-                optional_float=None,
+                optional_float=-95947.2111,
+                mandatory_bool=True,
+                optional_bool=True,
             ),
             RandomPersonsFixtureFileEmptyStrRow(
                 index=2,
-                mandatory_str="Hunter",
-                optional_str="",
-                mandatory_int=20,
-                optional_int=1,
-                mandatory_float=-15221.35845,
-                optional_float=-95947.2111,
-            ),
-            RandomPersonsFixtureFileEmptyStrRow(
-                index=3,
                 mandatory_str="Kevin",
                 optional_str="Sanchez",
                 mandatory_int=8,
                 optional_int=None,
                 mandatory_float=40050.61689,
                 optional_float=None,
+                mandatory_bool=True,
+                optional_bool=None,
             ),
             RandomPersonsFixtureFileEmptyStrRow(
-                index=4,
+                index=3,
                 mandatory_str="Christopher",
                 optional_str="Freeman",
                 mandatory_int=9,
                 optional_int=7,
                 mandatory_float=74859.09668,
                 optional_float=-46270.42507,
+                mandatory_bool=True,
+                optional_bool=False,
             ),
             RandomPersonsFixtureFileEmptyStrRow(
-                index=5,
+                index=4,
                 mandatory_str="Bryan",
                 optional_str="Hall",
                 mandatory_int=5,
                 optional_int=None,
                 mandatory_float=-17964.3768,
-                optional_float=-67664.05305,
+                optional_float=58604.80922,
+                mandatory_bool=False,
+                optional_bool=None,
             ),
             RandomPersonsFixtureFileEmptyStrRow(
-                index=6,
-                mandatory_str="Ricky",
-                optional_str="",
-                mandatory_int=81,
-                optional_int=7,
-                mandatory_float=59494.01444,
-                optional_float=None,
-            ),
-            RandomPersonsFixtureFileEmptyStrRow(
-                index=7,
+                index=5,
                 mandatory_str="Anna",
                 optional_str="",
                 mandatory_int=7,
                 optional_int=6,
                 mandatory_float=98680.42175,
                 optional_float=None,
+                mandatory_bool=False,
+                optional_bool=True,
             ),
             RandomPersonsFixtureFileEmptyStrRow(
-                index=8,
-                mandatory_str="Angelica",
-                optional_str="Evans",
-                mandatory_int=27,
-                optional_int=None,
-                mandatory_float=58478.98207,
-                optional_float=58604.80922,
-            ),
-            RandomPersonsFixtureFileEmptyStrRow(
-                index=9,
+                index=6,
                 mandatory_str="Patricia",
                 optional_str="Brewer",
                 mandatory_int=2,
                 optional_int=None,
-                mandatory_float=-8726.879,
+                mandatory_float=-8726879,
                 optional_float=None,
-            ),
-            RandomPersonsFixtureFileEmptyStrRow(
-                index=10,
-                mandatory_str="John",
-                optional_str="Mitchell",
-                mandatory_int=60,
-                optional_int=None,
-                mandatory_float=93534.83911,
-                optional_float=None,
+                mandatory_bool=False,
+                optional_bool=False,
             ),
         ]
         assert result.rows == expected
@@ -639,6 +587,8 @@ class TestCSVLoader(TestCase):
             "optional int",
             "mandatory float",
             "optional float",
+            "mandatory bool",
+            "optional bool",
         ]
 
     def test_stop_on_first_error(self):
@@ -691,9 +641,7 @@ class TestCSVLoader(TestCase):
                     output_model_cls=ErrorFixtureFileRow,
                     has_header=False,
                     aggregate_errors=True,
-                    mapping_strategy=MappingStrategyByHeader(
-                        model_cls=ErrorFixtureFileRow
-                    ),
+                    mapping_strategy=MappingStrategyByHeader(model_cls=ErrorFixtureFileRow),
                 )
 
 
@@ -775,15 +723,9 @@ class TestMappingStrategyByHeader(TestCase):
         mapping = MappingStrategyByHeader(
             model_cls=DummyModel,
             header_remap_fields=[
-                HeaderRemapField(
-                    header_field="Header Field 1", model_attr="header_field_1"
-                ),
-                HeaderRemapField(
-                    header_field="Header Field 2", model_attr="header_field_2"
-                ),
-                HeaderRemapField(
-                    header_field="Header Field 3", model_attr="header_field_3"
-                ),
+                HeaderRemapField(header_field="Header Field 1", model_attr="header_field_1"),
+                HeaderRemapField(header_field="Header Field 2", model_attr="header_field_2"),
+                HeaderRemapField(header_field="Header Field 3", model_attr="header_field_3"),
             ],
         )
         mapping.set_header(header)
@@ -794,3 +736,49 @@ class TestMappingStrategyByHeader(TestCase):
             "header_field_2": 222,
             "header_field_3": 333,
         }
+
+
+class BoolTestCSVRow(CSVRow):
+    index: int
+    mandatory_bool: bool
+    optional_bool: Optional[bool]
+
+    class Config(CSVRowDefaultConfig):
+        bool_value_pair: BoolValuePair = BoolValuePair(true="Y", false="N")
+
+
+class TestBoolValues(TestCase):
+    def test_bool_values(self):
+        with open(get_fixture_file_path("bool-test.csv")) as csv_file:
+            reader = csv.reader(csv_file, delimiter=",")
+
+            csv_loader = CSVLoader[BoolTestCSVRow](
+                reader=reader,
+                output_model_cls=BoolTestCSVRow,
+                has_header=True,
+            )
+            result = csv_loader.read_rows()
+
+        assert result.rows == [
+            BoolTestCSVRow(
+                index=1,
+                mandatory_bool=True,
+                optional_bool=False,
+            ),
+            BoolTestCSVRow(
+                index=2,
+                mandatory_bool=False,
+                optional_bool=None,
+            ),
+            BoolTestCSVRow(
+                index=3,
+                mandatory_bool=True,
+                optional_bool=True,
+            ),
+            BoolTestCSVRow(
+                index=4,
+                mandatory_bool=True,
+                optional_bool=None,
+            ),
+        ]
+        assert result.has_errors() is False

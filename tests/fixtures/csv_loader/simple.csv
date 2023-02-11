@@ -1,24 +1,5 @@
-Index,  Organization Id ,Random letters
-1,"FAB0d41d5b5d22c","  AAA "
-2,,"BBB"
-3,"0bFED1ADAE4bcC1","CCC"
-4,"2bFC1Be8a4ce42f",""
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Index,  Organization Id ,Random letters,Boolean value
+1,FAB0d41d5b5d22c,  AAA ,Y
+2,,BBB,N
+3,0bFED1ADAE4bcC1,CCC,Y
+4,2bFC1Be8a4ce42f,,N

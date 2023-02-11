@@ -1,0 +1,5 @@
+index,mandatory bool, optional bool
+1,Y,N
+2,N,
+3,Y,Y
+4,Y,unknown
