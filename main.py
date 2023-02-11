@@ -78,6 +78,10 @@ def process_example_1() -> None:
                 print(row.index, row.organization_id)
             print(result.header)
 
+        print("-" * 50)
+        duplicates = result.rows.get_field_duplicates(field_name="organization_id")
+        print(duplicates)
+
 
 def process_example_2() -> None:
     print("Processing Example 2")
@@ -100,7 +104,7 @@ def process_big_data() -> None:
     print("Processing Big Data")
     t = time.perf_counter()
 
-    with open("/tmp/big-data-set.csv") as csv_file:
+    with open("/tmp/big-data-set-10.000.csv") as csv_file:
         reader = csv.reader(csv_file, delimiter=",")
 
         csv_loader = CSVLoader[BigDatasetRow](
@@ -127,7 +131,18 @@ def process_big_data() -> None:
         #         )
 
     t_elapsed = time.perf_counter() - t
-    print(f"T: {t_elapsed:0.3f}")
+    print(f"T load: {t_elapsed:0.3f}")
+
+    print("-" * 50)
+    t = time.perf_counter()
+    field_name = "barcode_1"
+    duplicates = result.rows.get_field_duplicates(field_name=field_name)
+    # print(duplicates)
+
+    t_elapsed = time.perf_counter() - t
+    print(f"T duplicates ({field_name}): {t_elapsed:0.3f}")
+    print(f"duplicates found: {len(duplicates)}")
+    t = time.perf_counter()
 
 
 def main() -> None:

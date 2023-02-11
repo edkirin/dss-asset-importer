@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import collections
+from dataclasses import dataclass
 from typing import Any, Generic, Iterable, List, Optional, Tuple, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError, validator
@@ -10,7 +11,18 @@ from .errors import CSVValidationError, MappingStrategyError
 from .mapping_strategies import MappingStrategyByModelFieldOrder
 
 CSVReaderType = Iterable[List[str]]
-BoolValuePair = collections.namedtuple("BoolValuePair", ["true", "false"])
+
+
+@dataclass
+class BoolValuePair:
+    true: str
+    false: str
+
+
+@dataclass
+class CSVFieldDuplicate:
+    value: Any
+    duplicate_rows: List[int]
 
 
 class CSVRowDefaultConfig:
@@ -19,7 +31,7 @@ class CSVRowDefaultConfig:
     empty_optional_str_fields_to_none: Tuple = ("__all__",)
     """List of optional string fields which will be converted to None, if empty.
     Default magic value is "__all__" to convert all fields."""
-    bool_value_pair: BoolValuePair = BoolValuePair(true="1", false="0")
+    bool_value_pair = BoolValuePair(true="1", false="0")
     """Possible boolean values for true and false. If the actual value
     is not in defined pair, value will be parsed as None."""
 
@@ -89,6 +101,70 @@ class CSVRows(List[CSVLoaderModelType]):
         """Get list of all unique values from models for named field, without duplicates.
         Field value order is not preserved."""
         return list(set(self.get_field_values(field_name)))
+
+    def field_has_duplicates(self, field_name: str, value: Any) -> bool:
+        return value in self.get_field_values(field_name)
+
+    def get_field_duplicates(self, field_name: str) -> List[CSVFieldDuplicate]:
+        result: List[CSVFieldDuplicate] = []
+        matched_rows = set()
+        import time
+
+        t = time.perf_counter()
+        all_field_values = self.get_field_values(field_name)
+        print(">>>>", time.perf_counter() - t)
+
+        for row_index, value in enumerate(all_field_values):
+            if row_index in matched_rows:
+                continue
+            offs = row_index + 1
+            found_in_rows = [
+                i + offs for i, v in enumerate(all_field_values[offs:]) if v == value
+            ]
+            if found_in_rows:
+                matched_rows.update(found_in_rows)
+                found_in_rows.extend([row_index])
+
+                result.append(
+                    CSVFieldDuplicate(
+                        value=value,
+                        duplicate_rows=sorted(found_in_rows),
+                    )
+                )
+        return result
+
+    def get_field_duplicates_x(self, field_name: str) -> List[CSVFieldDuplicate]:
+        result: List[CSVFieldDuplicate] = []
+        matched_rows = set()
+        all_field_values = self.get_field_values(field_name)
+        all_field_values_len = len(all_field_values)
+
+        for row_index, value in enumerate(all_field_values):
+            if row_index in matched_rows:
+                continue
+
+            found_in_rows = []
+            # for i in range(row_index, all_field_values_len - 1):
+            #     if all_field_values[i] == value:
+            #         found_in_rows.append(i)
+
+            n = row_index
+            while n < all_field_values_len:
+                if all_field_values[n] == value:
+                    found_in_rows.append(n)
+                n += 1
+
+            if len(found_in_rows):
+                matched_rows.update(set(found_in_rows))
+                found_in_rows.extend([row_index])
+
+                result.append(
+                    CSVFieldDuplicate(
+                        value=value,
+                        duplicate_rows=sorted(found_in_rows),
+                    )
+                )
+        return result
 
 
 class CSVLoaderResult(Generic[CSVLoaderModelType]):
